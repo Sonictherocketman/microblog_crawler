@@ -18,4 +18,14 @@ Providing a `start_time` to the crawler will cause the crawler to only callback 
 
 Providing the `deep_traversal` option will force the crawler to crawl all past pages of a given URL (if they exist). By default, the crawler will parse the first 2 pages of the given URL, but will stop after that.
 
+The crawler returns Python dictionary representations of the element objects it finds in almost every callback excluding the `on_data` callback which recieves the raw text of the URL response. In cases where the crawler encounters an error, the crawler will pass a dictionary with the following structure to the `on_error` callback.
 
+<pre><code>
+error = {
+    'link': The URL of the feed that caused the error,
+    'code': The error code of the HTTP response (in most cases). 
+        If the error is not an HTTP error and is instead due to 
+        a parsing error, then the code will be -1.
+    'description': A brief description of what went wrong.
+    }
+</code></pre>
