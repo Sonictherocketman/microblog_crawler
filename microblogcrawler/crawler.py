@@ -75,9 +75,8 @@ class FeedCrawler():
         pass
 
     def on_feed(feed):
-        """ Called when a new feed is just received.
-
-        Currently does not get called at all. """
+        """ Called when a new feed is just received. Currently does not
+        get called at all. """
         pass
 
     def on_info(info):
