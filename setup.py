@@ -5,7 +5,7 @@ setup(
     version='0.0.1',
     author='Brian Schrader',
     author_email='brian@biteofanapple.com',
-    packages=['microblogcrawler', 'microblogcrawler_test'],
+    packages=['microblogcrawler', 'test'],
     scripts=[], # TODO: Add bin/ scripts here.
     url='https://github.com/Sonictherocketman/microblog_feedcrawler',
     license='LICENSE.txt',
