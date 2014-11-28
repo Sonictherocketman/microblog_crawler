@@ -14,7 +14,8 @@ class MyFeedCrawler(FeedCrawler):
     def on_finish():
         print 'Shutting down.'
 
-    def on_data(data):
+    def on_data(self, data):
+        print 'Progress: {0}'.format(self.progress())
         print 'Sample output: {0}...' .format(data[:20])
 
     def on_info(info):

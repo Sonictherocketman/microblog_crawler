@@ -42,21 +42,21 @@ class FeedCrawler():
 
     # Progress Modifiers
 
-    def start():
+    def start(self):
         """ Starts the crawling process. """
         self.stop_crawling = False
 
-    def stop():
+    def stop(self):
         """ Gracefully stops the crawling process. """
         self.stop_crawling = True
 
-    def progress():
+    def progress(self):
         """ Returns the crawlers progress through its given list. """
         return self._current_step / len(self._links)
 
     # Status Callbacks
 
-    def on_start():
+    def on_start(self):
         """ Called when the crawler is starting up or has finished and is
         going back over the feeds again.
 
@@ -64,32 +64,32 @@ class FeedCrawler():
         feed parsing list to that list. """
         pass
 
-    def on_finish():
+    def on_finish(self):
         """ Called when the crawler has finished crawling the required
         feeds. """
         pass
 
-    def on_data(data):
+    def on_data(self, data):
         """ Called when new data is recieved from a url. The data has not
         yet been parsed and is just text. """
         pass
 
-    def on_feed(feed):
+    def on_feed(self, feed):
         """ Called when a new feed is just received.
 
         Currently does not get called at all. """
         pass
 
-    def on_info(info):
+    def on_info(self, info):
         """ Called when a new info field is found in the feed.
         (i.e. relocate, user_name, etc) """
         pass
 
-     def on_item(item):
+     def on_item(self, item):
         """ Called when a new post element is found. """
         pass
 
-   def on_error(error):
+   def on_error(self, error):
         """ Called when an error is encountered. The error contains
         the url of the feed that caused the error and the code of
         the error. """
