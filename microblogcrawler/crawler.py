@@ -1,9 +1,13 @@
 """ Crawls feeds that are of interest to the user. """
 
 from lxml import etree
-
+from io import StringIO, BytesIO
 import requests
-from datetime.datetime import now
+from datetime import datetime
+
+# TODO
+# - Add filtering for times that have already been parsed.
+#
 
 
 class FeedCrawler():
@@ -34,7 +38,7 @@ class FeedCrawler():
         self._current_step = 0
         self._crawling_times = []
         self._start_time = start_time
-        self._stop_crawling = start_now
+        self._stop_crawling = not start_now
         self._deep_traverse = deep_traverse
         self._errors = []
         if start_now:
@@ -44,11 +48,11 @@ class FeedCrawler():
 
     def start(self):
         """ Starts the crawling process. """
-        self.stop_crawling = False
+        self._stop_crawling = False
 
     def stop(self):
         """ Gracefully stops the crawling process. """
-        self.stop_crawling = True
+        self._stop_crawling = True
 
     def progress(self):
         """ Returns the crawlers progress through its given list. """
@@ -84,17 +88,17 @@ class FeedCrawler():
         (i.e. relocate, user_name, etc) """
         pass
 
-     def on_item(self, item):
+    def on_item(self, item):
         """ Called when a new post element is found. """
         pass
 
-   def on_error(self, error):
+    def on_error(self, error):
         """ Called when an error is encountered. The error contains
         the url of the feed that caused the error and the code of
         the error. """
         print '''Error: {0}
         Code: {1}
-        URL: {3}
+        URL: {2}
         '''.format(error['description'], error['code'], error['link'])
 
     # Internals
@@ -102,7 +106,7 @@ class FeedCrawler():
     def _do_crawl(self):
         """ Starts the crawling engine. The engine constantly runs. To stop it,
         use the stop method provided. """
-        while not self.stop_crawling:
+        while not self._stop_crawling:
             # Check for new links.
             new_links = self.on_start()
             if isinstance(new_links, list):
@@ -110,6 +114,8 @@ class FeedCrawler():
 
             # Crawl each link.
             for link in self._links:
+                if self._stop_crawling:
+                    break
                 self._crawl_link(link)
 
             self.on_finish()
@@ -125,13 +131,13 @@ class FeedCrawler():
                 'description': 'Bad request'
             }
             self.on_error(error)
-            continue
+            return
         self.on_data(r.text)
 
         tree = None
         try:
-            tree = etree.parse(r.text)
-        except ParseError:
+            tree = etree.parse(BytesIO(r.content))
+        except etree.ParseError:
             # TODO Add additional, more costly parsers here.
             error = {
                     'link': link,
@@ -139,44 +145,46 @@ class FeedCrawler():
                     'description': 'Parsing error. Malformed feed.'
                 }
             self.on_error(error)
-            continue
+            return
 
         # TODO This could be dangerous! The feed could be huge.
         #self.on_feed(self._to_dict(tree))
 
         # Extract the useful info from it.
-        channel = tree.xpath('//channel')
         element_count = 0
-        if channel is not None:
-            for element in channel.xpath('child::node()'):
-                element_count += 1
-                if 'item' == element.xpath('name()'):
-                     self.on_item(self._to_dict(element))
-                else:
-                    self.on_info(self._to_dict(element))
-
-                # Check how many elements have been examined in the
-                # feed so far, if its too many, break out.
-                if element_count > 1000:
-                    error = {
-                        'link': link,
-                        'code': -1,
-                        'description': 'Overflow of elements.'
-                        }
-                    self.on_error(error)
-                    break
-        else:
+        channel = tree.xpath('//channel')
+        if len(channel) < 1:
             error = {
-                'link': link,
-                'code': -1,
-                'description': 'No channel element found for link.'
+                    'link': link,
+                    'code': -1,
+                    'description': 'No channel element found.'
                 }
+        for element in channel[0].getchildren():
+            element_count += 1
+            if 'item' == element.xpath('name()'):
+                item = self._to_dict(element)[1]
+                if item is not None:
+                    self.on_item(item)
+            else:
+                info = self._to_dict(element)[1]
+                if info is not None:
+                    self.on_info(info)
+
+            # Check how many elements have been examined in the
+            # feed so far, if its too many, break out.
+            if element_count > 1000:
+                error = {
+                    'link': link,
+                    'code': -1,
+                    'description': 'Overflow of elements.'
+                    }
                 self.on_error(error)
+                break
 
         # Traverse the next_node of the feed.
-        next_node = channel.xpath('/next_node')
-        if next_node is not None:
-            next_link = next_node.text
+        next_node = tree.xpath('//next_node')
+        if next_node is not None and len(next_node) > 0:
+            next_link = next_node[0].text
 
             # Check if this is the first node.
             head_node = channel.xpath('/link')
@@ -185,7 +193,7 @@ class FeedCrawler():
             if is_first_node or self._deep_traverse:
                 self._crawl_link(new_link)
 
-    def _to_dict(element):
+    def _to_dict(self, element):
         """ Converts a lxml element to python dict.
         See: http://lxml.de/FAQ.html """
         return element.tag, \
