@@ -30,6 +30,10 @@ error = {
     }
 </code></pre>
 
+## Installation
+
+`pip install microblogcrawler`
+
 ## Version Notes
 
 - *Important:* At version 1.0, the crawler has yet to be tested with any medium-large number (100+) of feeds to crawl. Since the crawler is designed to handle large numbers of feeds quickly, this will be a huge concern in coming versions.  
