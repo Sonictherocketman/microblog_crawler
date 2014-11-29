@@ -22,6 +22,8 @@ class FeedCrawler():
     item is found in the feed, regardless of when it was posted. The
     time provided will act as a 'from this time forward' flag. """
 
+    MAX_ITEMS_PER_FEED = 1000
+
     def __init__(self, links, start_now=False, start_time=None, deep_traverse=False):
         """ Creates a new crawler.
         - To start the crawler immediately,
@@ -47,6 +49,7 @@ class FeedCrawler():
     def start(self):
         """ Starts the crawling process. """
         self._stop_crawling = False
+        self._do_crawl()
 
     def stop(self):
         """ Gracefully stops the crawling process. """
@@ -183,6 +186,8 @@ class FeedCrawler():
                     'code': -1,
                     'description': 'No channel element found.'
                 }
+            self.on_error(error)
+            return
         for element in channel[0].getchildren():
             element_count += 1
             if 'item' == element.xpath('name()'):
@@ -200,7 +205,7 @@ class FeedCrawler():
 
             # Check how many elements have been examined in the
             # feed so far, if its too many, break out.
-            if element_count > 1000:
+            if element_count > MAX_ELEMENTS_PER_FEED:
                 error = {
                     'link': link,
                     'code': -1,
