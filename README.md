@@ -30,6 +30,30 @@ error = {
     }
 </code></pre>
 
+## Usage
+
+For a sample use case, check out the test module. For basic usage, see below.
+
+<pre><code>
+from microblogcrawler.crawler import FeedCrawler
+
+class MyFeedCrawler(FeedCrawler):
+    
+    on_item(self, item):
+        # Do something with the item.
+        print item
+
+if __name__ == '__main__':
+    links = [
+    'http://example1.com/rss',
+    'http://example2.com/rss',
+    'http://example3.com/rss',
+    'http://example4.com/rss',
+    'http://example5.com/rss',
+    ]
+    crawler = MyFeedCrawler(links=links, start_now=True)
+
+</code></pre>
 ## Bugs
 
 - Callbacks (except the `on_data` callback) may recieve either Unicode, or Python ASCII Strings as data. As of yet the results are inconsistant. 
