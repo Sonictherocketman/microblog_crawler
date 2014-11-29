@@ -29,3 +29,14 @@ error = {
     'description': A brief description of what went wrong.
     }
 </code></pre>
+
+## Bugs
+
+- Callbacks (except the `on_data` callback) may recieve either Unicode, or Python ASCII Strings as data. As of yet the results are inconsistant. 
+
+## Future Enhancements
+
+- Add a backup feed parser for when `lxml` fails due to malformed XML (maybe Beautiful Soup).
+- Increase the performance of the feed parser using the `multiprocessing` module. Currently, the parser only does requests in order. There's no reason that the crawler couldn't perform multiple requests and process them at once.
+- Add more tests and examples.
+- Handle Unicode more gracefully. Currently, the parser basically ignores Unicode and tries to hand all the work off to `lxml`. They type of data that the callbacks recieve is not consistent.
