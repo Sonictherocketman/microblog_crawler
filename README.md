@@ -1,12 +1,12 @@
 # Microblog Feed Crawler
 
-Currently InDev!
+*Version 1.0!*
 
 A basic feed crawler/parser for traversing [microblog][1] and RSS feeds.  
 
 [1]: http://openmicroblog.com
 
-The crawler's API is modeled afer the [Tweepy][2] StreamListener API. To use the crawler, subclass it and fill in the methods for the `on_event` methods. 
+The crawler's API is modeled afer the [Tweepy][2] StreamListener API. To use the crawler, subclass it and fill in the methods for the `on_event` methods. The crawler is meant to be quick and simple since it is designed to work close to real time. In later versions features may be added to address this directly (multiprocessing, simpler processing, etc). 
 
 [2]: https://github.com/tweepy/tweepy
 
@@ -29,6 +29,10 @@ error = {
     'description': A brief description of what went wrong.
     }
 </code></pre>
+
+## Version Notes
+
+- *Important:* At version 1.0, the crawler has yet to be tested with any medium-large number (100+) of feeds to crawl. Since the crawler is designed to handle large numbers of feeds quickly, this will be a huge concern in coming versions.  
 
 ## Usage
 
@@ -57,6 +61,7 @@ if __name__ == '__main__':
 ## Bugs
 
 - Callbacks (except the `on_data` callback) may recieve either Unicode, or Python ASCII Strings as data. As of yet the results are inconsistant. 
+- Due to the large potential processing overhead required to convert an entire RSS or Microblog feed into an lxml etree, the callback for `on_feed` is currently disabled. This feature may be reenabled in future versions but will require the explicit options to enable and will be disabled by default.
 
 ## Future Enhancements
 
