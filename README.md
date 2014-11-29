@@ -69,6 +69,7 @@ if __name__ == '__main__':
 - Increase the performance of the feed parser using the `multiprocessing` module. Currently, the parser only does requests in order. There's no reason that the crawler couldn't perform multiple requests and process them at once.
 - Add more tests and examples.
 - Handle Unicode more gracefully. Currently, the parser basically ignores Unicode and tries to hand all the work off to `lxml`. The type of data that the callbacks recieve is therefore not consistent.
+- Add Timezone sensitivity. Currently the parser ignores timezones for brevity.
 
 ## Acknowlegements
 
