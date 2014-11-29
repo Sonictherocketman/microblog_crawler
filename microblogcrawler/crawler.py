@@ -5,6 +5,7 @@ from io import StringIO, BytesIO
 import requests
 from datetime import datetime
 from dateutil.parser import parse
+import pytz
 
 
 class FeedCrawler():
@@ -35,7 +36,7 @@ class FeedCrawler():
         to True. """
         self._links = links
         self._current_step = 0
-        self._crawling_times = []
+        self._crawling_times = {}
         self._start_time = start_time
         self._is_first_pass = True
         self._stop_crawling = not start_now
@@ -119,7 +120,7 @@ class FeedCrawler():
         else:
             start_time = datetime.now()
         for link in self._links:
-            self._crawl_times[link] = start_time
+            self._crawling_times[link] = start_time
 
         # Start crawling.
         while not self._stop_crawling:
@@ -195,8 +196,12 @@ class FeedCrawler():
                 if item is not None:
                     # Check if the item is new or if this is the
                     # crawler's first pass over the feed.
-                    if self._is_first_pass or parse(item['pubdate']) \
-                            > self._crawl_times[link]
+                    # If no pubdate is found for the item, the callback
+                    # will automatically envoked.
+                    if self._is_first_pass \
+                            or item['pubdate'] is None \
+                            or parse(item['pubdate'], ignoretz=True) \
+                            > self._crawling_times[link]:
                         self.on_item(item)
             else:
                 info = self._to_dict(element)[1]
@@ -205,7 +210,7 @@ class FeedCrawler():
 
             # Check how many elements have been examined in the
             # feed so far, if its too many, break out.
-            if element_count > MAX_ELEMENTS_PER_FEED:
+            if element_count > FeedCrawler.MAX_ITEMS_PER_FEED:
                 error = {
                     'link': link,
                     'code': -1,
@@ -227,12 +232,12 @@ class FeedCrawler():
                 self._crawl_link(new_link)
 
         # Update the stored crawl time to the saved value above.
-        self._crawl_times[link] = fetch_time
+        self._crawling_times[link] = fetch_time
 
     def _to_dict(self, element):
         """ Converts a lxml element to python dict.
         See: http://lxml.de/FAQ.html """
-        return element.tag, \
+        return element.tag.lower(), \
             dict(map(self._to_dict, element)) or element.text
 
 
