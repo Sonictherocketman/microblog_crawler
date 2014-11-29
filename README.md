@@ -14,9 +14,9 @@ The crawler provides very basic control over the crawling process. The crawler c
 
 Upon instantiation, or when the `on_start` method is called, provide a list of feed URLs to crawl. The list can be modified either during instantiation, or during this callback.  The progress indicator will indicate the progress of the crawler through the list. When the crawler finishes the list, it will start over until the `stop` call is made. 
 
-Providing a `start_time` to the crawler will cause the crawler to only callback to the `on_item` callback when an item has been found with a pubdate element value of that time or after. After the initial pass, the crawler will only callback to posts it has not seen before.
+Providing a `start_time` to the crawler will cause the crawler to only callback to the `on_item` callback when an item has been found with a pubdate element value of that time or later. Regardless of the given `start_now` value after the initial pass, the crawler will only callback to posts it has not seen before.
 
-Providing the `deep_traversal` option will force the crawler to crawl all past pages of a given URL (if they exist). By default, the crawler will parse the first 2 pages of the given URL, but will stop after that.
+Providing the `deep_traversal` option will force the crawler to crawl all past pages of a given URL (if they exist). By default, the crawler will parse the first 2 pages of the given URL every time, but will stop after that.
 
 The crawler returns Python dictionary representations of the element objects it finds in almost every callback excluding the `on_data` callback which recieves the raw text of the URL response. In cases where the crawler encounters an error, the crawler will pass a dictionary with the following structure to the `on_error` callback.
 
@@ -61,11 +61,22 @@ if __name__ == '__main__':
 ## Bugs
 
 - Callbacks (except the `on_data` callback) may recieve either Unicode, or Python ASCII Strings as data. As of yet the results are inconsistant. 
-- Due to the large potential processing overhead required to convert an entire RSS or Microblog feed into an lxml etree, the callback for `on_feed` is currently disabled. This feature may be reenabled in future versions but will require the explicit options to enable and will be disabled by default.
+- Due to the large potential processing overhead required to convert an entire RSS or Microblog feed into an lxml etree, the callback for `on_feed` is currently disabled. This feature may be reenabled in future versions but will require explicit enabling and will be disabled by default.
 
 ## Future Enhancements
 
 - Add a backup feed parser for when `lxml` fails due to malformed XML (maybe Beautiful Soup).
 - Increase the performance of the feed parser using the `multiprocessing` module. Currently, the parser only does requests in order. There's no reason that the crawler couldn't perform multiple requests and process them at once.
 - Add more tests and examples.
-- Handle Unicode more gracefully. Currently, the parser basically ignores Unicode and tries to hand all the work off to `lxml`. They type of data that the callbacks recieve is not consistent.
+- Handle Unicode more gracefully. Currently, the parser basically ignores Unicode and tries to hand all the work off to `lxml`. The type of data that the callbacks recieve is therefore not consistent.
+
+## Acknowlegements
+
+The microblogcrawler module makes heavy use of, and requires the following 3rd party modules.
+
+- `lxml` for all the feed parsing.
+- `requests` for HTTP requests.
+- `datetime` for obvious reasons.
+- `dateutil` for parsing and interpretting varying datetime string formats.
+
+My thanks to all of the developers who made this project possble.
