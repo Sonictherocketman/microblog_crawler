@@ -4,10 +4,7 @@ from lxml import etree
 from io import StringIO, BytesIO
 import requests
 from datetime import datetime
-
-# TODO
-# - Add filtering for times that have already been parsed.
-#
+from dateutil.parser import parse
 
 
 class FeedCrawler():
@@ -38,6 +35,7 @@ class FeedCrawler():
         self._current_step = 0
         self._crawling_times = []
         self._start_time = start_time
+        self._is_first_pass = True
         self._stop_crawling = not start_now
         self._deep_traverse = deep_traverse
         self._errors = []
@@ -73,6 +71,11 @@ class FeedCrawler():
         feeds. """
         pass
 
+    def on_shutdown(self):
+        """ Called when the crawler has recieved a shutdown mesage. This
+        method is the last thing the crawler does before shutting down. """
+        pass
+
     def on_data(self, data):
         """ Called when new data is recieved from a url. The data has not
         yet been parsed and is just text. """
@@ -106,6 +109,16 @@ class FeedCrawler():
     def _do_crawl(self):
         """ Starts the crawling engine. The engine constantly runs. To stop it,
         use the stop method provided. """
+        # Set all the starting crawl times.
+        start_time = None
+        if self._start_time is not None:
+            start_time = self._start_time
+        else:
+            start_time = datetime.now()
+        for link in self._links:
+            self._crawl_times[link] = start_time
+
+        # Start crawling.
         while not self._stop_crawling:
             # Check for new links.
             new_links = self.on_start()
@@ -118,12 +131,23 @@ class FeedCrawler():
                     break
                 self._crawl_link(link)
 
+            # Get ready to go again.
+            if self._is_first_pass:
+                self._is_first_pass = False
             self.on_finish()
+
+        # Clean up and shut down.
+        self.on_shutdown()
 
     def _crawl_link(self, link):
         """ Crawls...Signals passed to the Crawler will affect the crawling. """
         # Get the feed and parse it.
         r = requests.get(link)
+
+        # Record the time the link was fetched.
+        fetch_time = datetime.now()
+
+        # Check if the request went through and begin parsing.
         if not r.status_code == 200:
             error = {
                 'link': link,
@@ -164,7 +188,11 @@ class FeedCrawler():
             if 'item' == element.xpath('name()'):
                 item = self._to_dict(element)[1]
                 if item is not None:
-                    self.on_item(item)
+                    # Check if the item is new or if this is the
+                    # crawler's first pass over the feed.
+                    if self._is_first_pass or parse(item['pubdate']) \
+                            > self._crawl_times[link]
+                        self.on_item(item)
             else:
                 info = self._to_dict(element)[1]
                 if info is not None:
@@ -192,6 +220,9 @@ class FeedCrawler():
 
             if is_first_node or self._deep_traverse:
                 self._crawl_link(new_link)
+
+        # Update the stored crawl time to the saved value above.
+        self._crawl_times[link] = fetch_time
 
     def _to_dict(self, element):
         """ Converts a lxml element to python dict.
