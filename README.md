@@ -6,11 +6,11 @@ A basic feed crawler/parser for traversing [microblog][1] and RSS feeds.
 
 [1]: http://openmicroblog.com
 
-The crawler's API is modeled afer the [Tweepy][2] StreamListener API. To use the crawler, subclass it and fill in the methods for the `on_event` methods. The crawler is meant to be quick and simple since it is designed to work close to real time. In later versions features may be added to address this directly (multiprocessing, simpler processing, etc). 
+The crawler's API is modeled afer the [Tweepy][2] StreamListener API. To use the crawler, subclass it and fill in the `on_event` methods. The crawler is meant to be quick and simple. In later versions features may be added to increase the performance (multiprocessing, simpler processing, etc). 
 
 [2]: https://github.com/tweepy/tweepy
 
-The crawler provides very basic control over the crawling process. The crawler can be forced to start upon instantiation, or at a later time. The crawler also has an API for graceful termination and progress checking.
+The crawler provides a few basic controls for starting, stopping, and monitering its progress. The crawler can be forced to start upon instantiation, or at a later time. The crawler also has an API for graceful termination and progress checking.
 
 Upon instantiation, or when the `on_start` method is called, provide a list of feed URLs to crawl. The list can be modified either during instantiation, or during this callback.  The progress indicator will indicate the progress of the crawler through the list. When the crawler finishes the list, it will start over until the `stop` call is made. 
 
