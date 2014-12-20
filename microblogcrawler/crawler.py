@@ -47,6 +47,7 @@ class FeedCrawler():
     def start(self):
         """ Starts the crawling process. """
         self._stop_crawling = False
+        self._do_crawl()
 
     def stop(self):
         """ Gracefully stops the crawling process. """
@@ -137,6 +138,8 @@ class FeedCrawler():
             self.on_finish()
 
         # Clean up and shut down.
+        self._links = []
+        self._start_now = False
         self.on_shutdown()
 
     def _crawl_link(self, link):

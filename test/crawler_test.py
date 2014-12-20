@@ -33,8 +33,3 @@ links = [
         'http://inessential.com/xml/rss.xml'
         ]
 crawler = MyFeedCrawler(links, start_now=True)
-
-
-
-
-
