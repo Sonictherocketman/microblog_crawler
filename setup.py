@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='MicroblogCrawler',
-    version='1.0',
+    version='1.1.6',
     author='Brian Schrader',
     author_email='brian@biteofanapple.com',
     packages=['microblogcrawler', 'test'],
@@ -13,7 +13,7 @@ setup(
     long_description=open('README.md').read(),
     install_requires=[
         'datetime',
-        'dateutil',
+        'python-dateutil',
         'requests',
         'lxml'
         ]

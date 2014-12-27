@@ -33,7 +33,7 @@ class FeedCrawler():
         to True. """
         self._links = links
         self._current_step = 0
-        self._crawling_times = []
+        self._crawl_times = {}
         self._start_time = start_time
         self._is_first_pass = True
         self._stop_crawling = not start_now
@@ -44,8 +44,10 @@ class FeedCrawler():
 
     # Progress Modifiers
 
-    def start(self):
+    def start(self, links=None):
         """ Starts the crawling process. """
+        if links is not None:
+            self._links = links
         self._stop_crawling = False
         self._do_crawl()
 
@@ -77,26 +79,26 @@ class FeedCrawler():
         method is the last thing the crawler does before shutting down. """
         pass
 
-    def on_data(self, data):
+    def on_data(self, link, data):
         """ Called when new data is recieved from a url. The data has not
         yet been parsed and is just text. """
         pass
 
-    def on_feed(self, feed):
+    def on_feed(self, link, feed):
         """ Called when a new feed is just received. Currently does not
         get called at all. """
         pass
 
-    def on_info(self, info):
+    def on_info(self, link, info):
         """ Called when a new info field is found in the feed.
         (i.e. relocate, user_name, etc) """
         pass
 
-    def on_item(self, item):
+    def on_item(self, link, item):
         """ Called when a new post element is found. """
         pass
 
-    def on_error(self, error):
+    def on_error(self, link, error):
         """ Called when an error is encountered. The error contains
         the url of the feed that caused the error and the code of
         the error. """
@@ -144,22 +146,27 @@ class FeedCrawler():
 
     def _crawl_link(self, link):
         """ Crawls...Signals passed to the Crawler will affect the crawling. """
-        # Get the feed and parse it.
-        r = requests.get(link)
-
-        # Record the time the link was fetched.
+         # Record the time the link was fetched.
         fetch_time = datetime.now()
 
-        # Check if the request went through and begin parsing.
+        # Get the feed and parse it.
+        r = None
+        try:
+            r = requests.get(link)
+        except ConnectionError:
+            print 'Connection refused:' + link
+            return
+
+       # Check if the request went through and begin parsing.
         if not r.status_code == 200:
             error = {
                 'link': link,
                 'code': r.status_code,
                 'description': 'Bad request'
             }
-            self.on_error(error)
+            self.on_error(link, error)
             return
-        self.on_data(r.text)
+        self.on_data(link, r.text)
 
         tree = None
         try:
@@ -171,7 +178,7 @@ class FeedCrawler():
                     'code': -1,
                     'description': 'Parsing error. Malformed feed.'
                 }
-            self.on_error(error)
+            self.on_error(link, error)
             return
 
         # TODO This could be dangerous! The feed could be huge.
@@ -193,13 +200,14 @@ class FeedCrawler():
                 if item is not None:
                     # Check if the item is new or if this is the
                     # crawler's first pass over the feed.
-                    if self._is_first_pass or parse(item['pubdate']) \
-                            > self._crawl_times[link]
-                        self.on_item(item)
+                    if self._is_first_pass or ('pubdate' in item.keys() \
+                            and parse(item['pubdate']) \
+                            > self._crawl_times[link]):
+                        self.on_item(link, item)
             else:
                 info = self._to_dict(element)[1]
                 if info is not None:
-                    self.on_info(info)
+                    self.on_info(link, info)
 
             # Check how many elements have been examined in the
             # feed so far, if its too many, break out.
@@ -209,7 +217,7 @@ class FeedCrawler():
                     'code': -1,
                     'description': 'Overflow of elements.'
                     }
-                self.on_error(error)
+                self.on_error(link, error)
                 break
 
         # Traverse the next_node of the feed.
