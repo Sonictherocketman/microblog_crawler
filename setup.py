@@ -1,8 +1,8 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='MicroblogCrawler',
-    version='1.1.6',
+    version='1.0.30',
     author='Brian Schrader',
     author_email='brian@biteofanapple.com',
     packages=['microblogcrawler', 'test'],
@@ -10,7 +10,7 @@ setup(
     url='https://github.com/Sonictherocketman/microblog_feedcrawler',
     license='LICENSE.txt',
     description='A basic microblog/rss feed crawler modeled after the Tweepy StreamListener.',
-    long_description=open('README.md').read(),
+    keywords=['microblog', 'crawler', 'rss'],
     install_requires=[
         'datetime',
         'python-dateutil',

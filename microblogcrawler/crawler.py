@@ -3,8 +3,9 @@
 from lxml import etree
 from io import StringIO, BytesIO
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil.parser import parse
+import time
 
 
 class FeedCrawler():
@@ -39,6 +40,7 @@ class FeedCrawler():
         self._stop_crawling = not start_now
         self._deep_traverse = deep_traverse
         self._errors = []
+        self._cache = {}
         if start_now:
             self._do_crawl()
 
@@ -118,6 +120,7 @@ class FeedCrawler():
             start_time = self._start_time
         else:
             start_time = datetime.now()
+            start_time.replace(microsecond=0)
         for link in self._links:
             self._crawl_times[link] = start_time
 
@@ -128,16 +131,28 @@ class FeedCrawler():
             if isinstance(new_links, list):
                 self._links = new_links
 
-            # Crawl each link.
             for link in self._links:
+                # Add the links to the cache if they aren't already.
+                if link not in self._cache.keys():
+                    self._cache[link] = {'expire_times': [], 'descriptions': []}
+
+                # Crawl the link.
                 if self._stop_crawling:
                     break
                 self._crawl_link(link)
+
+                # Clear the cache for the link.
+                for i, expire_time in enumerate(self._cache[link]['expire_times']):
+                    if self._crawl_times[link] > expire_time:
+                        del self._cache[link]['descriptions'][i]
+                        del self._cache[link]['expire_times'][i]
 
             # Get ready to go again.
             if self._is_first_pass:
                 self._is_first_pass = False
             self.on_finish()
+
+            time.sleep(1)
 
         # Clean up and shut down.
         self._links = []
@@ -146,14 +161,14 @@ class FeedCrawler():
 
     def _crawl_link(self, link):
         """ Crawls...Signals passed to the Crawler will affect the crawling. """
-         # Record the time the link was fetched.
-        fetch_time = datetime.now()
+        # Record the time the link was fetched.
+        fetch_time = datetime.now().replace(second=0, microsecond=0)
 
         # Get the feed and parse it.
         r = None
         try:
             r = requests.get(link)
-        except ConnectionError:
+        except requests.exceptions.ConnectionError:
             print 'Connection refused:' + link
             return
 
@@ -173,12 +188,11 @@ class FeedCrawler():
             tree = etree.parse(BytesIO(r.content))
         except etree.ParseError:
             # TODO Add additional, more costly parsers here.
-            error = {
+            self.on_error({
                     'link': link,
                     'code': -1,
                     'description': 'Parsing error. Malformed feed.'
-                }
-            self.on_error(link, error)
+                })
             return
 
         # TODO This could be dangerous! The feed could be huge.
@@ -188,11 +202,12 @@ class FeedCrawler():
         element_count = 0
         channel = tree.xpath('//channel')
         if len(channel) < 1:
-            error = {
+            self.on_error({
                     'link': link,
                     'code': -1,
                     'description': 'No channel element found.'
-                }
+                })
+            return
         for element in channel[0].getchildren():
             element_count += 1
             if 'item' == element.xpath('name()'):
@@ -200,9 +215,15 @@ class FeedCrawler():
                 if item is not None:
                     # Check if the item is new or if this is the
                     # crawler's first pass over the feed.
-                    if self._is_first_pass or ('pubdate' in item.keys() \
-                            and parse(item['pubdate']) \
-                            > self._crawl_times[link]):
+                    item_is_new = ('pubdate' in item.keys() \
+                            and parse(item['pubdate']) >= self._crawl_times[link]) \
+                            and item['description'] not in self._cache[link]['descriptions']
+                    if self._is_first_pass or item_is_new:
+                        # Cache the item's text and when it expires from the cache.
+                        self._cache[link]['descriptions'].append(item['description'])
+                        self._cache[link]['expire_times'].append(datetime.now() + timedelta(0, 3))
+
+                        # Call the callback.
                         self.on_item(link, item)
             else:
                 info = self._to_dict(element)[1]
@@ -212,12 +233,11 @@ class FeedCrawler():
             # Check how many elements have been examined in the
             # feed so far, if its too many, break out.
             if element_count > 1000:
-                error = {
+                self.on_error({
                     'link': link,
                     'code': -1,
                     'description': 'Overflow of elements.'
-                    }
-                self.on_error(link, error)
+                    })
                 break
 
         # Traverse the next_node of the feed.
