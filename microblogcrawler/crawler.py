@@ -124,7 +124,7 @@ class FeedCrawler():
             start_time = datetime.now()
             start_time.replace(microsecond=0)
         for link in self._links:
-            self._crawling_times[link] = start_time
+            self._crawl_times[link] = start_time
 
         # Start crawling.
         while not self._stop_crawling:
@@ -255,7 +255,7 @@ class FeedCrawler():
                 self._crawl_link(new_link)
 
         # Update the stored crawl time to the saved value above.
-        self._crawling_times[link] = fetch_time
+        self._crawl_times[link] = fetch_time
 
     def _to_dict(self, element):
         """ Converts a lxml element to python dict.

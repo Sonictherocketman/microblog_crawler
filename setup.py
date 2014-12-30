@@ -1,10 +1,9 @@
 from setuptools import setup
-<<<<<<< HEAD
 
 
 setup(
     name='MicroblogCrawler',
-    version='1.0.30',
+    version='1.0.31',
     author='Brian Schrader',
     author_email='brian@biteofanapple.com',
     packages=['microblogcrawler', 'test'],
