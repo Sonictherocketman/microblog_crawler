@@ -1,6 +1,6 @@
 # Microblog Feed Crawler
 
-*Version 1.0!*
+*Version 1.1! This version is not functional. Please use the master branch*
 
 A basic feed crawler/parser for traversing [microblog][1] and RSS feeds.  
 
