@@ -131,6 +131,10 @@ class FeedCrawler():
             # Check for new links.
             new_links = self.on_start()
             if isinstance(new_links, list):
+                for link in new_links:
+                    start_time = datetime.now()
+                    start_time.replace(microsecond=0)
+                    self._crawl_times[link] = start_time
                 self._links = new_links
 
             for link in self._links:
@@ -218,7 +222,7 @@ class FeedCrawler():
                     # Check if the item is new or if this is the
                     # crawler's first pass over the feed.
                     item_is_new = ('pubdate' in item.keys() \
-                            and parse(item['pubdate']) >= self._crawl_times[link]) \
+                            and parse(item['pubdate']).replace(tzinfo=None) >= self._crawl_times[link]) \
                             and item['description'] not in self._cache[link]['descriptions']
                     if self._is_first_pass or item_is_new:
                         # Cache the item's text and when it expires from the cache.
@@ -228,7 +232,7 @@ class FeedCrawler():
                         # Call the callback.
                         self.on_item(link, item)
             else:
-                info = self._to_dict(element)[1]
+                info = self._to_dict(element)
                 if info is not None:
                     self.on_info(link, info)
 
