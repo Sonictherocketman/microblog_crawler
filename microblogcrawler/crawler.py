@@ -168,7 +168,8 @@ class FeedCrawler():
     def _crawl_link(self, link):
         """ Crawls...Signals passed to the Crawler will affect the crawling. """
         # Record the time the link was fetched.
-        fetch_time = datetime.now().replace(second=0, microsecond=0)
+        fetch_time = datetime.now()
+        tech_time.replace(second=0, microsecond=0)
 
         # Get the feed and parse it.
         r = None
