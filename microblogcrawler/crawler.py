@@ -209,7 +209,6 @@ class FeedCrawler():
                         pubdate = server_tz.localize(pubdate)
                     # Normalize timezones to UTC
                     pubdate = pytz.utc.normalize(pubdate)
-
                     item_is_new = pubdate >= self._crawl_times[link]) \
                             and item['description'] not in self._cache[link]['descriptions']
                     if self._is_first_pass or item_is_new:
@@ -252,9 +251,5 @@ class FeedCrawler():
             dict(map(self._to_dict, element)) or element.text
 
     def _send_error(self, link='', code=0, description=''):
-        self.on_error({
-            'link': link,
-            'code': code,
-            'description': description
-            })
+        self.on_error({ 'link': link, 'code': code, 'description': description })
 
