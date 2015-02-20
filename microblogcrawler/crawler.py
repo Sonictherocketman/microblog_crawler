@@ -141,16 +141,13 @@ class FeedCrawler():
                 # Add the links to the cache if they aren't already.
                 if link not in self._cache.keys():
                     self._cache[link] = {'expire_times': [], 'descriptions': []}
-
                 # Crawl the link.
                 self._crawl_link(link)
-
                 # Clear the cache for the link.
                 for i, expire_time in enumerate(self._cache[link]['expire_times']):
                     if self._crawl_times[link] > expire_time:
                         del self._cache[link]['descriptions'][i]
                         del self._cache[link]['expire_times'][i]
-
                 # Get ready to go again.
                 if self._is_first_pass:
                     self._is_first_pass = False
