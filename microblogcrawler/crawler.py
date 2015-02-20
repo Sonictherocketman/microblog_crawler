@@ -3,7 +3,8 @@
 from lxml import etree
 from io import StringIO, BytesIO
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedeltai
+import pytz
 from dateutil.parser import parse
 import time
 
@@ -132,7 +133,7 @@ class FeedCrawler():
             new_links = self.on_start()
             if isinstance(new_links, list):
                 for link in new_links:
-                    start_time = datetime.now()
+                    start_time = datetime.now(tzinfo=pytz.utc)
                     start_time.replace(microsecond=0)
                     self._crawl_times[link] = start_time
                 self._links = new_links
@@ -140,7 +141,7 @@ class FeedCrawler():
             for link in self._links:
                 # Add the links to the cache if they aren't already.
                 if link not in self._cache.keys():
-                    self._cache[link] = {'expire_times': [], 'descriptions': []}
+                    self._cache[link] = { 'expire_times': [], 'descriptions': [] }
                 # Crawl the link.
                 self._crawl_link(link)
                 # Clear the cache for the link.
@@ -199,10 +200,17 @@ class FeedCrawler():
             if 'item' == element.xpath('name()'):
                 item = self._to_dict(element)[1]
                 if item is not None:
-                    # Check if the item is new or if this is the
-                    # crawler's first pass over the feed.
-                    item_is_new = ('pubdate' in item.keys() \
-                            and parse(item['pubdate']).replace(tzinfo=None) >= self._crawl_times[link]) \
+                    # Get the pubdate of the item.
+                    # If the pubdate has no tzinfo, the server's timezone.
+                    pubdate = parse(item['pubdate'])
+                    if pubdate.tzinfo is None:
+                        server_time = parse(r.headers['date'])
+                        server_tz = pytz.timezone(server_time.tzname())
+                        pubdate = server_tz.localize(pubdate)
+                    # Normalize timezones to UTC
+                    pubdate = pytz.utc.normalize(pubdate)
+
+                    item_is_new = pubdate >= self._crawl_times[link]) \
                             and item['description'] not in self._cache[link]['descriptions']
                     if self._is_first_pass or item_is_new:
                         # Cache the item's text and when it expires from the cache.
