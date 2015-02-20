@@ -18,10 +18,11 @@ class MyFeedCrawler(FeedCrawler):
         pass
 
     def on_info(self, link, info):
-        print info
+        #print info
+        pass
 
     def on_item(self, link, item):
-        #print 'Item text: {0}'.format(item)
+        print 'Item text: {0}'.format(item)
         pass
 
 # TODO Add more feeds, and some microblog feeds.
@@ -29,6 +30,7 @@ links = [
         #'http://newsrss.bbc.co.uk/rss/newsonline_uk_edition/front_page/rss.xml',
         #'http://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml',
         #'http://feeds.bbci.co.uk/news/technology/rss.xml'
-        'http://localhost:5000/feed'
+        'http://localhost:5000/feed',
+        'http://microblog.brianschrader.com/feed'
         ]
 crawler = MyFeedCrawler(links, start_now=True)
