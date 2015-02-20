@@ -143,8 +143,6 @@ class FeedCrawler():
                     self._cache[link] = {'expire_times': [], 'descriptions': []}
 
                 # Crawl the link.
-                if self._stop_crawling:
-                    break
                 self._crawl_link(link)
 
                 # Clear the cache for the link.
@@ -153,12 +151,11 @@ class FeedCrawler():
                         del self._cache[link]['descriptions'][i]
                         del self._cache[link]['expire_times'][i]
 
-            # Get ready to go again.
-            if self._is_first_pass:
-                self._is_first_pass = False
-            self.on_finish()
-
-            time.sleep(1)
+                # Get ready to go again.
+                if self._is_first_pass:
+                    self._is_first_pass = False
+                self.on_finish()
+                time.sleep(1)
 
         # Clean up and shut down.
         self._links = []
@@ -172,7 +169,6 @@ class FeedCrawler():
         tech_time.replace(second=0, microsecond=0)
 
         # Get the feed and parse it.
-        r = None
         try:
             r = requests.get(link)
         except requests.exceptions.ConnectionError:
@@ -180,26 +176,16 @@ class FeedCrawler():
             return
 
        # Check if the request went through and begin parsing.
-        if not r.status_code == 200:
-            error = {
-                'link': link,
-                'code': r.status_code,
-                'description': 'Bad request'
-            }
-            self.on_error(link, error)
+        if r.status_code != 200:
+            self._send_error(link=link, code=r.status_code, description='Bad request')
             return
         self.on_data(link, r.text)
 
-        tree = None
         try:
             tree = etree.parse(BytesIO(r.content))
         except etree.ParseError:
             # TODO Add additional, more costly parsers here.
-            self.on_error({
-                    'link': link,
-                    'code': -1,
-                    'description': 'Parsing error. Malformed feed.'
-                })
+            self._send_error(link=link, code=-1, description='Parsing error. Malformed feed.')
             return
 
         # TODO This could be dangerous! The feed could be huge.
@@ -209,11 +195,7 @@ class FeedCrawler():
         element_count = 0
         channel = tree.xpath('//channel')
         if len(channel) < 1:
-            self.on_error({
-                    'link': link,
-                    'code': -1,
-                    'description': 'No channel element found.'
-                })
+            self._send_error(link=link, code=-1, description='No channel element found.')
             return
         for element in channel[0].getchildren():
             element_count += 1
@@ -240,11 +222,7 @@ class FeedCrawler():
             # Check how many elements have been examined in the
             # feed so far, if its too many, break out.
             if element_count > FeedCrawler.MAX_ITEMS_PER_FEED:
-                self.on_error({
-                    'link': link,
-                    'code': -1,
-                    'description': 'Overflow of elements.'
-                    })
+                self._send_error(link=link, code=-1, description='Overflow of elements.')
                 break
 
         # Traverse the next_node of the feed.
@@ -268,4 +246,10 @@ class FeedCrawler():
         return element.tag.lower(), \
             dict(map(self._to_dict, element)) or element.text
 
+    def _send_error(self, link='', code=0, description=''):
+        self.on_error({
+            'link': link,
+            'code': code,
+            'description': description
+            })
 
