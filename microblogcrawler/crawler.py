@@ -172,7 +172,7 @@ class FeedCrawler():
         try:
             r = requests.get(link)
         except requests.exceptions.ConnectionError:
-            print 'Connection refused:' + link
+            self._send_error(link=link, code=-1, description='Connection refused')
             return
 
        # Check if the request went through and begin parsing.
