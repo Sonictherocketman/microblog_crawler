@@ -1,7 +1,7 @@
 """ Tests for the crawler module. Includes a basic subclass for testing use. """
 
 import unittest, os, sys
-
+sys.path.insert(0, '../')
 from microblogcrawler.crawler import FeedCrawler
 
 

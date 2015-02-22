@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='MicroblogCrawler',
-    version='1.1.200',
+    version='1.2.0',
     author='Brian Schrader',
     author_email='brian@biteofanapple.com',
     packages=['microblogcrawler', 'test'],
