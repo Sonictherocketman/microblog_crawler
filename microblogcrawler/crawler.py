@@ -9,6 +9,8 @@ from dateutil.parser import parse
 import time
 from multiprocessing import Pool
 import sys
+import pkg_resources
+
 
 # Public FeedCrawler Class
 
@@ -168,10 +170,12 @@ class FeedCrawler():
                 self._links = new_links
                 self._update_data()
             # Crawl the links.
+            results = []
             for crawl_data in self._crawl_data:
-                self._pool.apply_async(_crawl_link, crawl_data,
-                        callback=self._process)
-
+                results.append(self._pool.apply_async(_crawl_link, crawl_data,
+                        callback=self._process))
+            # Wait until all finish.
+            [result.get() for result in results]
             self.on_finish()
             time.sleep(FeedCrawler.CRAWL_INTERVAL)
 
@@ -197,10 +201,8 @@ class FeedCrawler():
         # Notify self that raw data was found.
         self.on_data(link, raw)
         # Notify self that info fields were found.
-        print info_fields
         [self.on_info(link, info) for info in info_fields]
         # Notify self that new items were found.
-        print items
         [self.on_item(link, item) for item in items]
 
         # Get the link's crawl_data
@@ -251,17 +253,17 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
 
     data = { 'info_fields': [], 'items': [], 'raw': '', 'crawl_time': None }
 
-    # Get the feed and parse it.
-    headers = {
-            'If-Modified-Since': last_crawl_time.strftime('%a, %d %b %Y %H:%M:%S %Z'),
-            'User-Agent': FeedCrawler.USER_AGENT
-            }
+    # Add various info to the headers.
+    headers = { 'User-Agent': FeedCrawler.USER_AGENT }
+    if not is_first_pass:
+        headers['If-Modified-Since'] = last_crawl_time.strftime('%a, %d %b %Y %H:%M:%S %Z')
+
+    # Make the request.
     try:
         r = requests.get(link, headers=headers)
     except requests.exceptions.ConnectionError:
         return link, data, cache, { 'code': -1,
                 'description': 'Connection refused' }
-
     # Check if the request went through and begin parsing.
     if r.status_code != 200:
         return link, data, cache, { 'code': r.status_code,
@@ -269,11 +271,17 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
 
     # Check if the content has been modified since last crawl.
     # If it hasn't been modified, then there's nothing to do.
-    if parse(r.headers.get('last-modified')) < last_crawl_time:
+    try:
+        last_mod = parse(r.headers.get('last-modified'))
+    except Exception:
+        last_mod = datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=pytz.utc)
+
+    if not is_first_pass and last_mod < last_crawl_time:
         return link, data, cache, None
 
     data['raw'] = r.text
 
+    # Convert to lxml.etree
     try:
         tree = etree.parse(BytesIO(r.content))
     except etree.ParseError:
@@ -317,7 +325,6 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
                     cache['descriptions'].append(item['description'])
                     cache['expire_times'].append(expire_time)
                     # Add it to the list of new items.
-                    print item
                     data['items'].append(item)
 
         # Check how many elements have been examined in the

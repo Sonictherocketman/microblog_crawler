@@ -33,7 +33,7 @@ links = [
         #'http://newsrss.bbc.co.uk/rss/newsonline_uk_edition/front_page/rss.xml',
         #'http://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml',
         #'http://feeds.bbci.co.uk/news/technology/rss.xml'
-        'http://localhost:5000/feed',
+        #'http://localhost:5000/feed',
         'http://microblog.brianschrader.com/feed'
         ]
 crawler = MyFeedCrawler(links, start_now=True)
