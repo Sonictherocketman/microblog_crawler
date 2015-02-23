@@ -8,7 +8,7 @@ import pytz
 from dateutil.parser import parse
 import time
 from multiprocessing import Pool
-
+import sys
 
 # Public FeedCrawler Class
 
@@ -53,6 +53,13 @@ class FeedCrawler():
     # larger than the number of cores may not improve performance
     # as expected.
     POOL_SIZE = 4
+
+    # Microblog Crawler's User Agent string. We are good citizens of
+    # the internet and should provide a useful metric to our followers.
+    # Sample: `Microblog Feed Crawler/1.1.200 (darwin)`
+    USER_AGENT = 'Microblog Feed Crawler/{0} ({1})'.format(
+            pkg_resources.get_distribution('MicroblogCrawler').version,
+            sys.platform)
 
 
     def __init__(self, links, start_now=False, start_time=None, deep_traverse=False):
@@ -244,8 +251,12 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     data = { 'info_fields': [], 'items': [], 'raw': '', 'crawl_time': None }
 
     # Get the feed and parse it.
+    headers = {
+            'If-Modified-Since': last_crawl_time.strftime('%a, %d %b %Y %H:%M:%S %Z'),
+            'User-Agent': FeedCrawler.USER_AGENT
+            }
     try:
-        r = requests.get(link)
+        r = requests.get(link, headers=headers)
     except requests.exceptions.ConnectionError:
         return link, data, cache, { 'code': -1,
                 'description': 'Connection refused' }
