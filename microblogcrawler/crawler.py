@@ -145,9 +145,6 @@ class FeedCrawler():
                 # Add the links to the cache if they aren't already.
                 if link not in self._cache.keys():
                     self._cache[link] = { 'expire_times': [], 'descriptions': [] }
-                print link
-                print self._is_first_pass[link]
-                print self._crawl_times[link]
                 # Crawl the link.
                 result = self._crawl_link(link)
                 # Clear the cache for the link.
@@ -201,6 +198,15 @@ class FeedCrawler():
         if len(channel) < 1:
             self._send_error(link=link, code=-1, description='No channel element found.')
             return { 'error': -1 }
+
+        # Search for all info elements first.
+        for element in channel[0].getchildren():
+            if element.xpath('name()') != 'item':
+                info = self._to_dict(element)
+                if info:
+                    self.on_info(link, info)
+
+        # Now do the items.
         for element in channel[0].getchildren():
             element_count += 1
             if 'item' == element.xpath('name()'):
@@ -223,10 +229,6 @@ class FeedCrawler():
                         self._cache[link]['expire_times'].append(datetime.now(pytz.utc) + timedelta(0, 3))
                         # Call the callback.
                         self.on_item(link, item)
-            else:
-                info = self._to_dict(element)
-                if info is not None:
-                    self.on_info(link, info)
 
             # Check how many elements have been examined in the
             # feed so far, if its too many, break out.
@@ -247,6 +249,17 @@ class FeedCrawler():
         # Update the stored crawl time to the saved value above.
         self._crawl_times[link] = fetch_time
         return {}
+
+    def _process(self, data):
+        """ Callback to handle the _crawl_link data once it's
+        returned from processing. """
+        info_fields = data['info_fields']
+        items = data['items']
+
+        # Notify self that info fields were found.
+        self.on_info(info) for info in info_fields
+        # Notify self that new items were found.
+        self.on_item(item) for item in items
 
     def _to_dict(self, element):
         """ Converts a lxml element to python dict.
