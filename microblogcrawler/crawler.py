@@ -48,6 +48,12 @@ class FeedCrawler():
     # This time should be longer than the CRAWL_INTERVAL.
     CACHE_EXPIRE_TIME = 9
 
+    # The number of worker threads in the pool. This number would
+    # typically be the number of cores on your machine. Numbers
+    # larger than the number of cores may not improve performance
+    # as expected.
+    POOL_SIZE = 4
+
 
     def __init__(self, links, start_now=False, start_time=None, deep_traverse=False):
         """ Creates a new crawler.
@@ -63,7 +69,7 @@ class FeedCrawler():
         self._start_time = start_time
         self._stop_crawling = not start_now
         self._deep_traverse = deep_traverse
-        self._pool = Pool(7)
+        self._pool = Pool(FeedCrawler.POOL_SIZE)
         if start_now:
             self._do_crawl()
 
@@ -155,10 +161,9 @@ class FeedCrawler():
                 self._update_data()
             # Crawl the links.
             for crawl_data in self._crawl_data:
-                self._pool.apply_async(_crawl_link, crawl_data, callback=self._process)
+                self._pool.apply_async(_crawl_link, crawl_data,
+                        callback=self._process)
 
-            #self._pool.close()
-            #self._pool.join()
             self.on_finish()
             time.sleep(FeedCrawler.CRAWL_INTERVAL)
 
@@ -184,15 +189,16 @@ class FeedCrawler():
         # Notify self that raw data was found.
         self.on_data(link, raw)
         # Notify self that info fields were found.
+        print info_fields
         [self.on_info(link, info) for info in info_fields]
         # Notify self that new items were found.
+        print items
         [self.on_item(link, item) for item in items]
 
         # Get the link's crawl_data
         crawl_time = data['crawl_time']
 
         # Prune the expired posts from the cache.
-        print cache
         for i, expire_time in enumerate(cache['expire_times']):
             if crawl_time > expire_time:
                 del cache['descriptions'][i]
@@ -223,7 +229,6 @@ class FeedCrawler():
 
             data = link, last_crawl_time, cache, deep_traverse, is_first_pass
             new_crawl_data.insert(index, data)
-            print new_crawl_data
         self._crawl_data = new_crawl_data
 
 
@@ -242,11 +247,13 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     try:
         r = requests.get(link)
     except requests.exceptions.ConnectionError:
-        return link, data, cache, { 'code': -1, 'description': 'Connection refused' }
+        return link, data, cache, { 'code': -1,
+                'description': 'Connection refused' }
 
     # Check if the request went through and begin parsing.
     if r.status_code != 200:
-        return link, data, cache, { 'code': r.status_code, 'description': 'Bad request' }
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Bad request' }
 
     data['raw'] = r.text
 
@@ -254,13 +261,15 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         tree = etree.parse(BytesIO(r.content))
     except etree.ParseError:
         # TODO Add additional, more costly parsers here.
-        return link, data, cache, { 'code': -1, 'description': 'Parsing error, malformed feed.' }
+        return link, data, cache, { 'code': -1,
+                'description': 'Parsing error, malformed feed.' }
 
     # Extract the useful info from it.
     element_count = 0
     channel = tree.xpath('//channel')
     if len(channel) < 1:
-        return link, data, cache, { 'code': -1, 'description': 'No channel element found.' }
+        return link, data, cache, { 'code': -1,
+                'description': 'No channel element found.' }
 
     for element in channel[0].getchildren():
         element_count += 1
@@ -291,12 +300,14 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
                     cache['descriptions'].append(item['description'])
                     cache['expire_times'].append(expire_time)
                     # Add it to the list of new items.
+                    print item
                     data['items'].append(item)
 
         # Check how many elements have been examined in the
         # feed so far, if its too many, break out.
         if element_count > FeedCrawler.MAX_ITEMS_PER_FEED:
-            return link, data, cache, { 'code': -1, 'description': 'Overflow of elements.' }
+            return link, data, cache, { 'code': -1,
+                    'description': 'Overflow of elements.' }
 
     # Traverse the next_node of the feed.
     next_node = tree.xpath('//next_node')
@@ -306,7 +317,8 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         head_node = channel.xpath('/link')
         is_first_node = head_node == link
         if is_first_node or deep_traverse or is_first_pass:
-            _crawl_link(next_link, last_crawl_time, cache, deep_traverse, is_first_pass)
+            _crawl_link(next_link, last_crawl_time, cache, deep_traverse,
+                    is_first_pass)
 
     # Update the stored crawl time to the saved value above.
     data['crawl_time'] = fetch_time
