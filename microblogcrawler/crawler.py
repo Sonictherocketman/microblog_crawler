@@ -7,6 +7,10 @@ from datetime import datetime, timedelta
 import pytz
 from dateutil.parser import parse
 import time
+from multiprocessing import Pool
+
+
+# Public FeedCrawler Class
 
 
 class FeedCrawler():
@@ -36,14 +40,11 @@ class FeedCrawler():
         - To traverse the entire user's feed, set `deep_traverse`
         to True. """
         self._links = links
-        self._current_step = 0
-        self._crawl_times = {}
+        self._crawl_data = []
         self._start_time = start_time
-        self._is_first_pass = {}
         self._stop_crawling = not start_now
         self._deep_traverse = deep_traverse
-        self._errors = []
-        self._cache = {}
+        self._pool = Pool(7)
         if start_now:
             self._do_crawl()
 
@@ -124,149 +125,167 @@ class FeedCrawler():
         else:
             start_time = datetime.now(pytz.utc)
             start_time.replace(microsecond=0)
-        for link in self._links:
-            self._crawl_times[link] = start_time
-            self._is_first_pass[link] = True
+
+        self._update_data()
 
         # Start crawling.
         while not self._stop_crawling:
             # Check for new links.
             new_links = self.on_start()
             if isinstance(new_links, list):
-                for link in new_links:
-                    start_time = datetime.now(pytz.utc)
-                    start_time.replace(microsecond=0)
-                    self._crawl_times[link] = start_time
-                    if link not in self._links:
-                        self._is_first_pass[link] = True
                 self._links = new_links
-
-            for link in self._links:
-                # Add the links to the cache if they aren't already.
-                if link not in self._cache.keys():
-                    self._cache[link] = { 'expire_times': [], 'descriptions': [] }
-                # Crawl the link.
-                result = self._crawl_link(link)
-                # Clear the cache for the link.
-                for i, expire_time in enumerate(self._cache[link]['expire_times']):
-                    if self._crawl_times[link] > expire_time:
-                        del self._cache[link]['descriptions'][i]
-                        del self._cache[link]['expire_times'][i]
-                # Get ready to go again.
-                if self._is_first_pass[link] and result.get('error') is None:
-                    self._is_first_pass[link] = False
-                self.on_finish()
-                time.sleep(1)
+                self._update_data()
+            # Crawl the links.
+            self._pool.apply_async(self._crawl_link(), self._links, self._process)
+            self.on_finish()
+            # TODO: Derive new sleep timer. this will not work async.
+            time.sleep(1)
 
         # Clean up and shut down.
         self._links = []
         self._start_now = False
         self.on_shutdown()
 
-    def _crawl_link(self, link):
-        """ Crawls...Signals passed to the Crawler will affect the crawling. """
-        # Record the time the link was fetched.
-        fetch_time = datetime.now(pytz.utc)
-        fetch_time.replace(second=0, microsecond=0)
-
-        # Get the feed and parse it.
-        try:
-            r = requests.get(link)
-        except requests.exceptions.ConnectionError:
-            self._send_error(link=link, code=-1, description='Connection refused')
-            return { 'error': -1 }
-
-       # Check if the request went through and begin parsing.
-        if r.status_code != 200:
-            self._send_error(link=link, code=r.status_code, description='Bad request')
-            return { 'error': r.status_code }
-        self.on_data(link, r.text)
-
-        try:
-            tree = etree.parse(BytesIO(r.content))
-        except etree.ParseError:
-            # TODO Add additional, more costly parsers here.
-            self._send_error(link=link, code=-1, description='Parsing error. Malformed feed.')
-            return { 'error': -1 }
-
-        # TODO This could be dangerous! The feed could be huge.
-        #self.on_feed(self._to_dict(tree))
-
-        # Extract the useful info from it.
-        element_count = 0
-        channel = tree.xpath('//channel')
-        if len(channel) < 1:
-            self._send_error(link=link, code=-1, description='No channel element found.')
-            return { 'error': -1 }
-
-        # Search for all info elements first.
-        for element in channel[0].getchildren():
-            if element.xpath('name()') != 'item':
-                info = self._to_dict(element)
-                if info:
-                    self.on_info(link, info)
-
-        # Now do the items.
-        for element in channel[0].getchildren():
-            element_count += 1
-            if 'item' == element.xpath('name()'):
-                item = self._to_dict(element)[1]
-                if item is not None:
-                    # Get the pubdate of the item.
-                    # If the pubdate has no tzinfo, the server's timezone.
-                    pubdate = parse(item['pubdate'])
-                    if pubdate.tzinfo is None:
-                        server_time = parse(r.headers['date'])
-                        server_tz = pytz.timezone(server_time.tzname())
-                        pubdate = server_tz.localize(pubdate)
-                    # Normalize timezones to UTC
-                    pubdate = pytz.utc.normalize(pubdate)
-                    item_is_new = pubdate >= self._crawl_times[link] \
-                            and item['description'] not in self._cache[link]['descriptions']
-                    if self._is_first_pass[link] or item_is_new:
-                        # Cache the item's text and when it expires from the cache.
-                        self._cache[link]['descriptions'].append(item['description'])
-                        self._cache[link]['expire_times'].append(datetime.now(pytz.utc) + timedelta(0, 3))
-                        # Call the callback.
-                        self.on_item(link, item)
-
-            # Check how many elements have been examined in the
-            # feed so far, if its too many, break out.
-            if element_count > FeedCrawler.MAX_ITEMS_PER_FEED:
-                self._send_error(link=link, code=-1, description='Overflow of elements.')
-                break
-
-        # Traverse the next_node of the feed.
-        next_node = tree.xpath('//next_node')
-        if next_node is not None and len(next_node) > 0:
-            next_link = next_node[0].text
-            # Check if this is the first node.
-            head_node = channel.xpath('/link')
-            is_first_node = head_node == link
-            if is_first_node or self._deep_traverse or self._is_first_pass[link]:
-                self._crawl_link(new_link)
-
-        # Update the stored crawl time to the saved value above.
-        self._crawl_times[link] = fetch_time
-        return {}
-
-    def _process(self, data):
+    def _process(self, link, data, updated_cache, error):
         """ Callback to handle the _crawl_link data once it's
-        returned from processing. """
+        returned from processing. This is called for each link once
+        it returns. """
+        # Process the data
+        raw = data['raw']
         info_fields = data['info_fields']
         items = data['items']
 
+        # Notify self that raw data was found.
+        self.on_data(raw)
         # Notify self that info fields were found.
         self.on_info(info) for info in info_fields
         # Notify self that new items were found.
         self.on_item(item) for item in items
 
-    def _to_dict(self, element):
-        """ Converts a lxml element to python dict.
-        See: http://lxml.de/FAQ.html """
-        return element.tag.lower(), \
-            dict(map(self._to_dict, element)) or element.text
+        # Get the link's crawl_data
+        crawl_time = data['crawl_time']
 
-    def _send_error(self, link='', code=0, description=''):
-        self.on_error(link=link, error={ 'link': link, 'code': code, 'description': description })
+        # Prune the expired posts from the cache.
+        for i, expire_time in updated_cache['expire_times']:
+            if crawl_time > expire_time:
+                del updated_cache['descriptions'][i]
+                del updated_cache['expire_times'][i]
+
+        # Update the crawl_data.
+        new_crawl_data = link, crawl_time, updated_cache, self._deep_traverse, False
+        index = [i for i, alink in self._links if alink == link][0]
+        self._crawl_data[index] = new_crawl_data
+
+    def _update_data(self):
+        """ Updates the internal data for each link. """
+        new_crawl_data = []
+        old_links = [index, old_link for index, old_link, lct, c, dt, ifp in self._crawl_data]
+        for index, link in self._links:
+            for old_link, lct, c, dt, ifp in self._crawl_data:
+                if link == old_link:
+                    # If the link is already in the crawl data.
+                    if link in old_links:
+                        data = old_link, lct, c, dt, ifp
+                        new_crawl_data.insert(index, data)
+                    # Add a new entry.
+                    else:
+                        last_crawl_time = datetime.now(pytz.utc)
+                        cache = { 'expire_times': [], 'descriptions': [] }
+                        deep_traverse = self._deep_traverse
+                        is_first_pass = True
+
+                        data = link, last_crawl_time, cache, deep_traverse, is_first_pass
+                        new_crawl_data.insert(index, data)
+        self._crawl_data = new_crawl_data
+
+
+# Internal Crawling Function
+
+
+def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
+    """ Performs the actual crawling. """
+    # Record the time the link was fetched.
+    fetch_time = datetime.now(pytz.utc)
+    fetch_time.replace(second=0, microsecond=0)
+
+    data = { 'info_fields': [], 'items': [], 'raw': '', 'crawl_time': None }
+
+    # Get the feed and parse it.
+    try:
+        r = requests.get(link)
+    except: requests.exceptions.ConnectionError:
+        return link, data, cache, { 'code': -1, 'description': 'Connection refused' }
+
+    # Check if the request went through and begin parsing.
+    if r.status_code != 200:
+        return link, data, cache, { 'code': r.status_code, 'description': 'Bad request' }
+
+    data['raw'] = r.text
+
+    try:
+        tree = etree.parse(BytesIO(r.content))
+    except etree.ParseError:
+        # TODO Add additional, more costly parsers here.
+        return link, data, cache, { 'code': -1, 'description': 'Parsing error, malformed feed.' }
+
+    # Extract the useful info from it.
+    element_count = 0
+    channel = tree.xpath('//channel')
+    if len(channel) < 1:
+        return link, data, cache, { 'code': -1, 'description': 'No channel element found.' }
+
+    for element in channel[0].getchildren():
+        element_count += 1
+        # Search for info fields.
+        if element.xpath('name()').lower() != 'item':
+            info = _to_dict(element)
+            if info not None:
+                data['info_fields'].append(info)
+        # Search for items.
+        else:
+            item = _to_dict(element)[1]
+            if item is not None:
+                # Get the pubdate of the item.
+                # If the pubdate has no tzinfo, the server's timezone.
+                pubdate = parse(item['pubdate'])
+                if pubdate.tzinfo is None:
+                    server_time = parse(r.headers['date'])
+                    server_tz = pytz.timezone(server_time.tzname())
+                    pubdate = server_tz.localize(pubdate)
+                # Normalize timezones to UTC
+                pubdate = pytz.utc.normalize(pubdate)
+                item_is_new = pubdate >= last_crawl_time \
+                        and item['description'] not in cache['descriptions']
+                if is_first_pass or item_is_new:
+                    # Cache the item's text and when it expires from the cache.
+                    cache[link]['descriptions'].append(item['description'])
+                    cache[link]['expire_times'].append(datetime.now(pytz.utc) + timedelta(0, 3))
+                    # Add it to the list of new items.
+                    data['items'].append(item)
+
+        # Check how many elements have been examined in the
+        # feed so far, if its too many, break out.
+        if element_count > FeedCrawler.MAX_ITEMS_PER_FEED:
+            return link, data, cache, { 'code': -1, 'description': 'Overflow of elements.' }
+
+    # Traverse the next_node of the feed.
+    next_node = tree.xpath('//next_node')
+    if next_node is not None and len(next_node) > 0:
+        next_link = next_node[0].text
+        # Check if this is the first node.
+        head_node = channel.xpath('/link')
+        is_first_node = head_node == link
+        if is_first_node or deep_traverse or is_first_pass:
+            _crawl_link(new_link, last_crawl_time, cache, deep_traverse, is_first_pass)
+
+    # Update the stored crawl time to the saved value above.
+    data['crawl_time'] = fetch_time
+    return link, data, cache, None
+
+
+def _to_dict(element):
+    """ Converts a lxml element to python dict.
+    See: http://lxml.de/FAQ.html """
+    return element.tag.lower(), \
+        dict(map(_to_dict, element)) or element.text
 
