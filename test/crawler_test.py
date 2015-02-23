@@ -18,12 +18,15 @@ class MyFeedCrawler(FeedCrawler):
         pass
 
     def on_info(self, link, info):
-        #print info
+        print info
         pass
 
     def on_item(self, link, item):
         print 'Item text: {0}'.format(item)
         pass
+
+    def on_error(self, link, error):
+        print 'Error for {}:\n {}'.format(link, error)
 
 # TODO Add more feeds, and some microblog feeds.
 links = [

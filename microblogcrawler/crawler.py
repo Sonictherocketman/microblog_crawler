@@ -28,7 +28,26 @@ class FeedCrawler():
     item is found in the feed, regardless of when it was posted. The
     time provided will act as a 'from this time forward' flag. """
 
-    MAX_ITEMS_PER_FEED = 1000
+    # How many items should the crawler attempt to return before
+    # admitting that a page of the feed may be too big. This limit
+    # resets for each page of the feed. A properly paginated feed
+    # should never hit this limit.
+    MAX_ITEMS_PER_FEED = 2000
+
+    # Seconds between crawl attempts. Since the crawler returns feed
+    # items whenever it finishes parsing, and does not wait for other
+    # feeds to complete this is considered as the most often a given
+    # feed will be parsed.
+    CRAWL_INTERVAL = 3
+
+    # Seconds until cached posts expire. Adjust this range if you
+    # notice duplicate items in your feed. Longer expire times mean
+    # the cache is more memory intensive to store and computationally
+    # expensive to search, and shorter times may result in duplicates.
+    #
+    # This time should be longer than the CRAWL_INTERVAL.
+    CACHE_EXPIRE_TIME = 9
+
 
     def __init__(self, links, start_now=False, start_time=None, deep_traverse=False):
         """ Creates a new crawler.
@@ -125,7 +144,6 @@ class FeedCrawler():
         else:
             start_time = datetime.now(pytz.utc)
             start_time.replace(microsecond=0)
-
         self._update_data()
 
         # Start crawling.
@@ -136,66 +154,76 @@ class FeedCrawler():
                 self._links = new_links
                 self._update_data()
             # Crawl the links.
-            self._pool.apply_async(self._crawl_link(), self._links, self._process)
+            for crawl_data in self._crawl_data:
+                self._pool.apply_async(_crawl_link, crawl_data, callback=self._process)
+
+            #self._pool.close()
+            #self._pool.join()
             self.on_finish()
-            # TODO: Derive new sleep timer. this will not work async.
-            time.sleep(1)
+            time.sleep(FeedCrawler.CRAWL_INTERVAL)
 
         # Clean up and shut down.
         self._links = []
         self._start_now = False
         self.on_shutdown()
 
-    def _process(self, link, data, updated_cache, error):
+    def _process(self, return_data):
         """ Callback to handle the _crawl_link data once it's
         returned from processing. This is called for each link once
         it returns. """
+        link, data, cache, error = return_data
+
+        # Notify self if there were errors, then exit.
+        self.on_error(link, error) if error else None
+
         # Process the data
         raw = data['raw']
         info_fields = data['info_fields']
         items = data['items']
 
         # Notify self that raw data was found.
-        self.on_data(raw)
+        self.on_data(link, raw)
         # Notify self that info fields were found.
-        self.on_info(info) for info in info_fields
+        [self.on_info(link, info) for info in info_fields]
         # Notify self that new items were found.
-        self.on_item(item) for item in items
+        [self.on_item(link, item) for item in items]
 
         # Get the link's crawl_data
         crawl_time = data['crawl_time']
 
         # Prune the expired posts from the cache.
-        for i, expire_time in updated_cache['expire_times']:
+        print cache
+        for i, expire_time in enumerate(cache['expire_times']):
             if crawl_time > expire_time:
-                del updated_cache['descriptions'][i]
-                del updated_cache['expire_times'][i]
+                del cache['descriptions'][i]
+                del cache['expire_times'][i]
 
         # Update the crawl_data.
-        new_crawl_data = link, crawl_time, updated_cache, self._deep_traverse, False
-        index = [i for i, alink in self._links if alink == link][0]
+        new_crawl_data = link, crawl_time, cache, self._deep_traverse, False
+        index = [i for i, alink in enumerate(self._links) if alink == link][0]
         self._crawl_data[index] = new_crawl_data
 
     def _update_data(self):
         """ Updates the internal data for each link. """
         new_crawl_data = []
-        old_links = [index, old_link for index, old_link, lct, c, dt, ifp in self._crawl_data]
-        for index, link in self._links:
+        old_links = [link for link, lct, c, dt, ifp in self._crawl_data]
+        for link in self._links:
+            index = self._links.index(link)
+            # Re-add the old items.
             for old_link, lct, c, dt, ifp in self._crawl_data:
                 if link == old_link:
-                    # If the link is already in the crawl data.
                     if link in old_links:
                         data = old_link, lct, c, dt, ifp
                         new_crawl_data.insert(index, data)
-                    # Add a new entry.
-                    else:
-                        last_crawl_time = datetime.now(pytz.utc)
-                        cache = { 'expire_times': [], 'descriptions': [] }
-                        deep_traverse = self._deep_traverse
-                        is_first_pass = True
+            # Add the new ones.
+            last_crawl_time = datetime.now(pytz.utc)
+            cache = { 'expire_times': [], 'descriptions': [] }
+            deep_traverse = self._deep_traverse
+            is_first_pass = True
 
-                        data = link, last_crawl_time, cache, deep_traverse, is_first_pass
-                        new_crawl_data.insert(index, data)
+            data = link, last_crawl_time, cache, deep_traverse, is_first_pass
+            new_crawl_data.insert(index, data)
+            print new_crawl_data
         self._crawl_data = new_crawl_data
 
 
@@ -213,7 +241,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     # Get the feed and parse it.
     try:
         r = requests.get(link)
-    except: requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError:
         return link, data, cache, { 'code': -1, 'description': 'Connection refused' }
 
     # Check if the request went through and begin parsing.
@@ -239,7 +267,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         # Search for info fields.
         if element.xpath('name()').lower() != 'item':
             info = _to_dict(element)
-            if info not None:
+            if info:
                 data['info_fields'].append(info)
         # Search for items.
         else:
@@ -258,8 +286,10 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
                         and item['description'] not in cache['descriptions']
                 if is_first_pass or item_is_new:
                     # Cache the item's text and when it expires from the cache.
-                    cache[link]['descriptions'].append(item['description'])
-                    cache[link]['expire_times'].append(datetime.now(pytz.utc) + timedelta(0, 3))
+                    expire_time = datetime.now(pytz.utc) \
+                        + timedelta(0, FeedCrawler.CACHE_EXPIRE_TIME)
+                    cache['descriptions'].append(item['description'])
+                    cache['expire_times'].append(expire_time)
                     # Add it to the list of new items.
                     data['items'].append(item)
 
@@ -276,7 +306,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         head_node = channel.xpath('/link')
         is_first_node = head_node == link
         if is_first_node or deep_traverse or is_first_pass:
-            _crawl_link(new_link, last_crawl_time, cache, deep_traverse, is_first_pass)
+            _crawl_link(next_link, last_crawl_time, cache, deep_traverse, is_first_pass)
 
     # Update the stored crawl time to the saved value above.
     data['crawl_time'] = fetch_time
