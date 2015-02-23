@@ -56,11 +56,12 @@ class FeedCrawler():
 
     # Microblog Crawler's User Agent string. We are good citizens of
     # the internet and should provide a useful metric to our followers.
-    # Sample: `Microblog Feed Crawler/1.1.200 (darwin)`
-    USER_AGENT = 'Microblog Feed Crawler/{0} ({1})'.format(
+    # The User-Agent contains the count of subscribers that it represents.
+    # Sample: `Microblog Feed Crawler/1.1.200 (darwin; 1 subscribers;)`
+    USER_AGENT = 'Microblog Feed Crawler/{0} ({1}; {2} subscribers;)'.format(
             pkg_resources.get_distribution('MicroblogCrawler').version,
-            sys.platform)
-
+            sys.platform,
+            1)
 
     def __init__(self, links, start_now=False, start_time=None, deep_traverse=False):
         """ Creates a new crawler.
