@@ -255,6 +255,11 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         return link, data, cache, { 'code': r.status_code,
                 'description': 'Bad request' }
 
+    # Check if the content has been modified since last crawl.
+    # If it hasn't been modified, then there's nothing to do.
+    if parse(r.headers.get('last-modified')) < last_crawl_time:
+        return link, data, cache, None
+
     data['raw'] = r.text
 
     try:
