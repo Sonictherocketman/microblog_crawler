@@ -226,11 +226,9 @@ class FeedCrawler():
         for link in self._links:
             index = self._links.index(link)
             # Re-add the old items.
-            for old_link, lct, c, dt, ifp in self._crawl_data:
-                if link == old_link:
-                    if link in old_links:
-                        data = old_link, lct, c, dt, ifp
-                        new_crawl_data.insert(index, data)
+            [new_crawl_data.insert(old_link, lct, c, dt, ifp)
+                    for old_link, lct, c, dt, ifp in self._crawl_data
+                    if link == old_link]
             # Add the new ones.
             last_crawl_time = datetime.now(pytz.utc)
             cache = { 'expire_times': [], 'descriptions': [] }
