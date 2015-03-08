@@ -22,7 +22,6 @@ The crawler returns Python dictionary representations of the element objects it 
 
 <pre><code>
 error = {
-    'link': The URL of the feed that caused the error,
     'code': The error code of the HTTP response (in most cases). 
         If the error is not an HTTP error and is instead due to 
         a parsing error, then the code will be -1.
@@ -81,6 +80,25 @@ if __name__ == '__main__':
 
 - Add more tests and examples.
 - Handle Unicode more gracefully. Currently, the parser basically ignores Unicode and tries to hand all the work off to `lxml`. The type of data that the callbacks recieve is therefore not consistent.
+
+## Performance
+
+Although the crawler hasn't gone through formal testing, The results of limited tests are below:
+
+<table>
+    <thead>
+        <tr>
+            <td>Number of Feeds</td>
+            <td>Average Crawl Time</td>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>36</td>
+            <td>1.763 (s)</td>
+        </tr>
+    </tbody>
+</table>
 
 ## Acknowlegements
 

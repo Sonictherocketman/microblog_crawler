@@ -178,7 +178,11 @@ class FeedCrawler():
                 results.append(self._pool.apply_async(_crawl_link, crawl_data,
                         callback=self._process))
             # Wait until all finish.
-            [result.get() for result in results]
+            try:
+                [result.get() for result in results]
+            except AttributeError:
+                self.on_error('', { 'code': -1, 'description': \
+                'Error parsing link. See previous error for more info.' })
             self.on_finish()
             time.sleep(FeedCrawler.CRAWL_INTERVAL)
 
@@ -271,13 +275,14 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
 
     # Check if the content has been modified since last crawl.
     # If it hasn't been modified, then there's nothing to do.
-    try:
-        last_mod = parse(r.headers.get('last-modified'))
-    except Exception:
-        last_mod = datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=pytz.utc)
-
-    if not is_first_pass and last_mod < last_crawl_time:
-        return link, data, cache, None
+    #try:
+    #    last_mod = parse(r.headers.get('last-modified'))
+    #except Exception:
+    #    last_mod = datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=pytz.utc)
+    #
+    #if not is_first_pass and last_mod < last_crawl_time:
+    #   data['crawl_time'] = fetch_time
+    #   return link, data, cache, None
 
     data['raw'] = r.text
 
