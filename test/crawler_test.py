@@ -21,8 +21,8 @@ class MyFeedCrawler(FeedCrawler):
         print info
         pass
 
-    def on_item(self, link, item):
-        print 'Item text: {0}'.format(item)
+    def on_item(self, link, info, item):
+        print 'Item text: {0}\n{1}'.format(info, item)
         pass
 
     def on_error(self, link, error):

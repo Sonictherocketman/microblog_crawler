@@ -135,7 +135,7 @@ class FeedCrawler():
         (i.e. relocate, user_name, etc) """
         pass
 
-    def on_item(self, link, item):
+    def on_item(self, link, info, item):
         """ Called when a new post element is found. """
         pass
 
@@ -202,8 +202,12 @@ class FeedCrawler():
         self.on_data(link, raw)
         # Notify self that info fields were found.
         [self.on_info(link, info) for info in info_fields]
+
+        info = {}
+        [info.setdefault(key, value) for key, value in info_fields]
+        print info
         # Notify self that new items were found.
-        [self.on_item(link, item) for item in items]
+        [self.on_item(link, info, item) for item in items]
 
         # Get the link's crawl_data
         crawl_time = data['crawl_time']
