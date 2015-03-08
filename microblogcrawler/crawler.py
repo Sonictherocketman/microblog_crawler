@@ -93,8 +93,11 @@ class FeedCrawler():
         self._do_crawl()
 
     def stop(self):
-        """ Gracefully stops the crawling process. """
+        """ Gracefully stops the crawling process. This shuts down
+        the processing pool and exits when all processes have stopped. """
         self._stop_crawling = True
+        self._pool.close()
+        self._pool.join()
 
     def progress(self):
         """ Returns the crawlers progress through its given list. """
@@ -196,7 +199,9 @@ class FeedCrawler():
         [info_dict.setdefault(key, value) for key, value in info_fields]
 
         # Notify self.
-        self.on_error(link, error) if error else None
+        if error is not None:
+            self.on_error(link, error)
+            return
         self.on_data(link, raw)
         [self.on_info(link, info) for info in info_fields]
         [self.on_item(link, info_dict, item) for item in items]
@@ -220,7 +225,7 @@ class FeedCrawler():
         for link in self._links:
             index = self._links.index(link)
             # Re-add the old items.
-            [new_crawl_data.insert(old_link, lct, c, dt, ifp)
+            [new_crawl_data.insert((old_link, lct, c, dt, ifp))
                     for old_link, lct, c, dt, ifp in self._crawl_data
                     if link == old_link]
             # Add the new ones.
@@ -256,8 +261,11 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     except requests.exceptions.ConnectionError:
         return link, data, cache, { 'code': -1,
                 'description': 'Connection refused' }
-    # Check if the request went through and begin parsing.
-    if r.status_code != 200:
+    # Check for HTTP status codes.
+    if r.status_code == 304:
+        data['crawl_time'] = fetch_time
+        return link, data, cache, None
+    elif r.status_code != 200:
         return link, data, cache, { 'code': r.status_code,
                 'description': 'Bad request' }
 
