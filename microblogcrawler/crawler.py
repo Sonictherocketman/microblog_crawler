@@ -133,7 +133,7 @@ class FeedCrawler():
         pass
 
     def on_info(self, link, info):
-        """ Called when a new info field is found in the feed.
+        """ Called when a feed's info fields are collected.
         (i.e. relocate, user_name, etc) """
         pass
 
@@ -337,7 +337,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     if next_node is not None and len(next_node) > 0:
         next_link = next_node[0].text
         # Check if this is the first node.
-        head_node = channel.xpath('/link')
+        head_node = channel.xpath('//link')
         is_first_node = head_node == link
         if is_first_node or deep_traverse or is_first_pass:
             _crawl_link(next_link, last_crawl_time, cache, deep_traverse,
