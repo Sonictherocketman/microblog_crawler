@@ -6,7 +6,7 @@ A basic feed crawler/parser for traversing [microblog][1] and RSS feeds.
 
 [1]: http://openmicroblog.com
 
-The crawler's API is modeled afer the [Tweepy][2] StreamListener API. To use the crawler, subclass it and fill in the `on_event` methods. The crawler is meant to be quick and simple. In later versions features may be added to increase the performance (multiprocessing, simpler processing, etc). 
+The crawler's API is modeled afer the [Tweepy][2] StreamListener API. To use the crawler, subclass it and fill in the `on_event` methods. The crawler is meant to be quick and simple. 
 
 [2]: https://github.com/tweepy/tweepy
 
