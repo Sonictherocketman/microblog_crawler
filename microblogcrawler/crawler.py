@@ -258,26 +258,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     if not is_first_pass:
         headers['If-Modified-Since'] = last_crawl_time.strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-    # Make the request.
-    try:
-        r = requests.get(link, headers=headers)
-    except requests.exceptions.ConnectionError:
-        return link, data, cache, { 'code': -1,
-                'description': 'Connection refused' }
-
-    # Check for HTTP status codes.
-    if r.status_code == 304:
-        data['crawl_time'] = fetch_time
-        return link, data, cache, None
-    elif r.status_code == 404:
-        return link, data, cache, { 'code': r.status_code,
-                'description': 'Feed not found.' }
-    elif r.status_code == 500:
-        return link, data, cache, { 'code': r.status_code,
-                'description': 'Internal server error.' }
-    elif r.status_code != 200:
-        return link, data, cache, { 'code': r.status_code,
-                'description': 'Other error, check HTTP status code.' }
+    r = _do_get(link, headers)
 
     data['raw'] = r.text
 
@@ -347,6 +328,35 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     data['crawl_time'] = fetch_time
     return link, data, cache, None
 
+
+def _do_get(link, headers, attempts=0):
+    # Make the request.
+    try:
+        r = requests.get(link, headers=headers)
+    except requests.exceptions.ConnectionError:
+        return link, data, cache, { 'code': -1,
+                'description': 'Connection refused' }
+
+    # Check for HTTP status codes.
+    if r.status_code == 304:
+        data['crawl_time'] = fetch_time
+        return link, data, cache, None
+    elif r.status_code == 404:
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Feed not found.' }
+    elif r.status_code == 500:
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Internal server error.' }
+    elif r.status_code != 200:
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Other error, check HTTP status code.' }
+    elif r.status_code == 301:
+        # Do a new request to the new URL.
+        new_url = r.headers['Location']
+        attempts += 1
+        if attempts < FeedCrawler.MAX_REDIRECTS:
+            _do_get(link, headers, attempts)
+    return r
 
 def _to_dict(element):
     """ Converts a lxml element to python dict.
