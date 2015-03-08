@@ -18,6 +18,10 @@ class MyFeedCrawler(FeedCrawler):
     def on_finish(self):
         print 'This iteration took {0} seconds.'.format(time.time() - self.total_time)
 
+    def on_info(self, link, info):
+        #print info
+        pass
+
     def on_item(self, link, info, item):
         #print 'Item text: {0}\n{1}'.format(info, item)
         pass

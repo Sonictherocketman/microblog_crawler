@@ -128,11 +128,6 @@ class FeedCrawler():
         yet been parsed and is just text. """
         pass
 
-    def on_feed(self, link, feed):
-        """ Called when a new feed is just received. Currently does not
-        get called at all. """
-        pass
-
     def on_info(self, link, info):
         """ Called when a new info field is found in the feed.
         (i.e. relocate, user_name, etc) """
@@ -207,7 +202,7 @@ class FeedCrawler():
             self.on_error(link, error)
             return
         self.on_data(link, raw)
-        [self.on_info(link, info) for info in info_fields]
+        self.on_info(link, info_dict)
         [self.on_item(link, info_dict, item) for item in items]
 
         # Prune the expired posts from the cache.
@@ -265,6 +260,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     except requests.exceptions.ConnectionError:
         return link, data, cache, { 'code': -1,
                 'description': 'Connection refused' }
+
     # Check for HTTP status codes.
     if r.status_code == 304:
         data['crawl_time'] = fetch_time
@@ -273,24 +269,12 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         return link, data, cache, { 'code': r.status_code,
                 'description': 'Bad request' }
 
-    # Check if the content has been modified since last crawl.
-    # If it hasn't been modified, then there's nothing to do.
-    #try:
-    #    last_mod = parse(r.headers.get('last-modified'))
-    #except Exception:
-    #    last_mod = datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=pytz.utc)
-    #
-    #if not is_first_pass and last_mod < last_crawl_time:
-    #   data['crawl_time'] = fetch_time
-    #   return link, data, cache, None
-
     data['raw'] = r.text
 
     # Convert to lxml.etree
     try:
         tree = etree.parse(BytesIO(r.content))
     except etree.ParseError:
-        # TODO Add additional, more costly parsers here.
         return link, data, cache, { 'code': -1,
                 'description': 'Parsing error, malformed feed.' }
 

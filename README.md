@@ -42,6 +42,7 @@ Version 1.3 is now multiprocessed!
 Among other things, version 1.3 also includes a number of fixes and improvements.
 
 - `on_item` callback now includes the feed information as the second parameter. This is a breaking change in the API.
+- `on_info` callback now recieves a dictionary response of all of the info fields in a given feed. Previous versions recieved a name, value tuple.
 - Multiprocessing now allows the crawler to process 4 feeds (or more if you override the value) at once. 
 - Fixed a number of bugs that allowed duplicates. 
 - Fixed an issue where feed crawl times may be inaccurately reported.
