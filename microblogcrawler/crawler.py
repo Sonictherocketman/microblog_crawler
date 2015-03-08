@@ -30,6 +30,9 @@ class FeedCrawler():
     item is found in the feed, regardless of when it was posted. The
     time provided will act as a 'from this time forward' flag. """
 
+    # How many times should the crawler follow HTTP 301 redirects.
+    MAX_REDIRECTS = 10
+
     # How many items should the crawler attempt to return before
     # admitting that a page of the feed may be too big. This limit
     # resets for each page of the feed. A properly paginated feed
@@ -260,6 +263,25 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
 
     r = _do_get(link, headers)
 
+    # Check for HTTP status codes.
+    if r.status_code == 301:
+        new_url = r.headers['Location']
+        attempts += 1
+        if attempts < FeedCrawler.MAX_REDIRECTS:
+            _do_get(link, headers, attempts)
+    elif r.status_code == 304:
+        data['crawl_time'] = fetch_time
+        return link, data, cache, None
+    elif r.status_code == 404:
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Feed not found.' }
+    elif r.status_code == 500:
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Internal server error.' }
+    elif r.status_code != 200:
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Other error, check HTTP status code.' }
+
     data['raw'] = r.text
 
     # Convert to lxml.etree
@@ -336,27 +358,8 @@ def _do_get(link, headers, attempts=0):
     except requests.exceptions.ConnectionError:
         return link, data, cache, { 'code': -1,
                 'description': 'Connection refused' }
-
-    # Check for HTTP status codes.
-    if r.status_code == 304:
-        data['crawl_time'] = fetch_time
-        return link, data, cache, None
-    elif r.status_code == 404:
-        return link, data, cache, { 'code': r.status_code,
-                'description': 'Feed not found.' }
-    elif r.status_code == 500:
-        return link, data, cache, { 'code': r.status_code,
-                'description': 'Internal server error.' }
-    elif r.status_code != 200:
-        return link, data, cache, { 'code': r.status_code,
-                'description': 'Other error, check HTTP status code.' }
-    elif r.status_code == 301:
-        # Do a new request to the new URL.
-        new_url = r.headers['Location']
-        attempts += 1
-        if attempts < FeedCrawler.MAX_REDIRECTS:
-            _do_get(link, headers, attempts)
     return r
+
 
 def _to_dict(element):
     """ Converts a lxml element to python dict.
