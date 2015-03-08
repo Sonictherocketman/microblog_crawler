@@ -1,6 +1,6 @@
 # Microblog Feed Crawler
 
-*Version 1.1!*
+*Version 1.3!*
 
 A basic feed crawler/parser for traversing [microblog][1] and RSS feeds.  
 
@@ -32,11 +32,25 @@ error = {
 
 ## Installation
 
-`pip install microblogcrawler`
+`pip install MicroblogCrawler`
 
 ## Version Notes
 
-- *Important:* At version 1.0, the crawler has yet to be tested with any medium-large number (100+) of feeds to crawl. Since the crawler is designed to handle large numbers of feeds quickly, this will be a huge concern in coming versions.  
+Version 1.3 is now multiprocessed! 
+
+----
+
+Among other things, version 1.3 also includes a number of fixes and improvements.
+
+- `on_item` callback now includes the feed information as the second parameter. This is a breaking change in the API.
+- Multiprocessing now allows the crawler to process 4 feeds (or more if you override the value) at once. 
+- Fixed a number of bugs that allowed duplicates. 
+- Fixed an issue where feed crawl times may be inaccurately reported.
+- Fixed the timezone problem. Feeds without timezones are parsed according to their HTTP response timezone.
+
+Added a bunch of 'Good Citizen' features like:
+- Added crawler user agent and proper subscriber count reporting to remote servers.
+- Crawler is now HTTP status code aware and static files will not be parsed if they have not been modified (HTTP 304).
 
 ## Usage
 
@@ -62,18 +76,11 @@ if __name__ == '__main__':
     crawler = MyFeedCrawler(links=links, start_now=True)
 
 </code></pre>
-## Bugs
-
-- Callbacks (except the `on_data` callback) may recieve either Unicode, or Python ASCII Strings as data. As of yet the results are inconsistant. 
-- Due to the large potential processing overhead required to convert an entire RSS or Microblog feed into an lxml etree, the callback for `on_feed` is currently disabled. This feature may be reenabled in future versions but will require explicit enabling and will be disabled by default.
 
 ## Future Enhancements
 
-- Add a backup feed parser for when `lxml` fails due to malformed XML (maybe Beautiful Soup).
-- Increase the performance of the feed parser using the `multiprocessing` module. Currently, the parser only does requests in order. There's no reason that the crawler couldn't perform multiple requests and process them at once.
 - Add more tests and examples.
 - Handle Unicode more gracefully. Currently, the parser basically ignores Unicode and tries to hand all the work off to `lxml`. The type of data that the callbacks recieve is therefore not consistent.
-- Add Timezone sensitivity. Currently the parser ignores timezones for brevity.
 
 ## Acknowlegements
 
