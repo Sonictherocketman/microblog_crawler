@@ -18,7 +18,6 @@ class MyFeedCrawler(FeedCrawler):
         pass
 
     def on_info(self, link, info):
-        print info
         pass
 
     def on_item(self, link, info, item):

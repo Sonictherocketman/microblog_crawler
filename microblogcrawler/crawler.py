@@ -189,32 +189,20 @@ class FeedCrawler():
         returned from processing. This is called for each link once
         it returns. """
         link, data, cache, error = return_data
-
-        # Notify self if there were errors, then exit.
-        self.on_error(link, error) if error else None
-
-        # Process the data
         raw = data['raw']
         info_fields = data['info_fields']
         items = data['items']
+        info_dict = {}
+        [info_dict.setdefault(key, value) for key, value in info_fields]
 
-        # Notify self that raw data was found.
+        # Notify self.
+        self.on_error(link, error) if error else None
         self.on_data(link, raw)
-
-        # Serialize info fields.
-        info = {}
-        [info.setdefault(key, value) for key, value in info_fields]
-
-        # Notify self that info fields were found.
         [self.on_info(link, info) for info in info_fields]
-
-        # Notify self that new items were found.
-        [self.on_item(link, info, item) for item in items]
-
-        # Get the link's crawl_data
-        crawl_time = data['crawl_time']
+        [self.on_item(link, info_dict, item) for item in items]
 
         # Prune the expired posts from the cache.
+        crawl_time = data['crawl_time']
         for i, expire_time in enumerate(cache['expire_times']):
             if crawl_time > expire_time:
                 del cache['descriptions'][i]
