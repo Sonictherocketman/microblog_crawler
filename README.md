@@ -51,6 +51,8 @@ Among other things, version 1.3 also includes a number of fixes and improvements
 Added a bunch of 'Good Citizen' features like:
 - Added crawler user agent and proper subscriber count reporting to remote servers.
 - Crawler is now HTTP status code aware and static files will not be parsed if they have not been modified (HTTP 304).
+- Added automatic 301 redirection behavior and MAX\_REDIRECTS
+- Added support for returning specific error codes from other HTTP headers.
 
 ## Usage
 
