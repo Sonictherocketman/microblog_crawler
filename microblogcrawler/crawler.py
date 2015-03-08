@@ -40,7 +40,11 @@ class FeedCrawler():
     # items whenever it finishes parsing, and does not wait for other
     # feeds to complete this is considered as the most often a given
     # feed will be parsed.
-    CRAWL_INTERVAL = 3
+    # Note: The crawler uses a lot of bandwidth. Lowering the crawl time
+    # can make the timeline more realtime, but will cost more in bandwidth.
+    # For example, crawling every 3 sec for ~60 feeds will use ~0.5TB of
+    # bandwidth per month (~750 hrs).
+    CRAWL_INTERVAL = 5
 
     # Seconds until cached posts expire. Adjust this range if you
     # notice duplicate items in your feed. Longer expire times mean
@@ -96,7 +100,7 @@ class FeedCrawler():
         """ Gracefully stops the crawling process. This shuts down
         the processing pool and exits when all processes have stopped. """
         self._stop_crawling = True
-        self._pool.close()
+        self._pool.terminate()
         self._pool.join()
 
     def progress(self):
