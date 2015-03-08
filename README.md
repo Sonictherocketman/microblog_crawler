@@ -70,7 +70,7 @@ if __name__ == '__main__':
     'http://example2.com/rss',
     'http://example3.com/rss',
     'http://example4.com/rss',
-    'http://example5.com/rss',
+    'http://example5.com/rss'
     ]
     crawler = MyFeedCrawler(links=links, start_now=True)
 
