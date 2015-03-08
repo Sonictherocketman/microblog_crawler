@@ -200,12 +200,14 @@ class FeedCrawler():
 
         # Notify self that raw data was found.
         self.on_data(link, raw)
+
+        # Serialize info fields.
+        info = {}
+        [info.setdefault(key, value) for key, value in info_fields]
+
         # Notify self that info fields were found.
         [self.on_info(link, info) for info in info_fields]
 
-        info = {}
-        [info.setdefault(key, value) for key, value in info_fields]
-        print info
         # Notify self that new items were found.
         [self.on_item(link, info, item) for item in items]
 
