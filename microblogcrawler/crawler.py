@@ -265,9 +265,15 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     if r.status_code == 304:
         data['crawl_time'] = fetch_time
         return link, data, cache, None
+    elif r.status_code == 404:
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Feed not found.' }
+    elif r.status_code == 500:
+        return link, data, cache, { 'code': r.status_code,
+                'description': 'Internal server error.' }
     elif r.status_code != 200:
         return link, data, cache, { 'code': r.status_code,
-                'description': 'Bad request' }
+                'description': 'Other error, check HTTP status code.' }
 
     data['raw'] = r.text
 
