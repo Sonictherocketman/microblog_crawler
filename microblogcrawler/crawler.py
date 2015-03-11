@@ -231,7 +231,7 @@ class FeedCrawler():
         for link in self._links:
             index = self._links.index(link)
             # Re-add the old items.
-            [new_crawl_data.insert((old_link, lct, c, dt, ifp))
+            [new_crawl_data.insert(index, (old_link, lct, c, dt, ifp))
                     for old_link, lct, c, dt, ifp in self._crawl_data
                     if link == old_link]
             # Add the new ones.
