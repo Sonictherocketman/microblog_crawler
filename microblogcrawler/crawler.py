@@ -320,13 +320,14 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         return link, data, cache, { 'code': -1,
                 'description': 'No channel element found.' }
 
-    # Check the last build date.
-    lbd_element = channel.xpath('/lastBuildDate')
-    if len(lbd_element) > 0:
-        last_build_date = parse(lbd_element[0].text)
-        if last_build_date < last_crawl_time:
-            data['crawl_time'] = fetch_time
-            return link, data, cache, None
+    # Check the last build date if this feed has been seen before.
+    if not is_first_pass:
+        lbd_element = channel[0].xpath('//lastBuildDate')
+        if len(lbd_element) > 0:
+            last_build_date = parse(lbd_element[0].text)
+            if last_build_date < last_crawl_time:
+                data['crawl_time'] = fetch_time
+                return link, data, cache, None
 
     # Taverse the tree.
     for element in channel[0].getchildren():

@@ -10,19 +10,22 @@ class MyFeedCrawler(FeedCrawler):
 
     def __init__(self, links, start_now=False):
         self.total_time = 0
+        self.count = 0
         FeedCrawler.__init__(self, links, start_now=start_now)
 
     def on_start(self):
+        self.count = 0
         self.total_time = time.time()
 
     def on_finish(self):
-        print '{0} seconds'.format(time.time() - self.total_time)
+        print '{0} New Items | {1} seconds'.format(self.count, time.time() - self.total_time)
 
     def on_info(self, link, info):
         #print info
         pass
 
     def on_item(self, link, info, item):
+        self.count += 1
         #print 'Item text: {0}\n{1}'.format(info, item)
         pass
 
