@@ -93,12 +93,14 @@ Although the crawler hasn't gone through formal testing, The results of limited 
         <tr>
             <td>Number of Feeds</td>
             <td>Average Crawl Time</td>
+            <td>Total Iterations</td>
         </tr>
     </thead>
     <tbody>
         <tr>
             <td>36</td>
-            <td>1.763 (s)</td>
+            <td>0.605 (s)</td>
+            <td>30</td>
         </tr>
     </tbody>
 </table>
