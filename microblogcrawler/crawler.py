@@ -90,13 +90,25 @@ class FeedCrawler():
         if start_now:
             self._do_crawl()
 
+
+    # Getters and Setters
+
+    def set_links(self, links):
+        """ Adds the given links to the crawl list. Using this assures that
+        the adding process isn't incomplete. """
+        self._links = links
+        self._update_data()
+
+    def get_links(self):
+        """ Does what it says on the tin. """
+        return self._links
+
     # Progress Modifiers
 
     def start(self, links=None):
         """ Starts the crawling process. """
         if links is not None:
-            self._links = links
-            self._start_time = datetime.now(pytz.utc)
+            self.set_links(links)
         self._stop_crawling = False
         self._do_crawl()
 
@@ -173,8 +185,7 @@ class FeedCrawler():
             # Check for new links.
             new_links = self.on_start()
             if isinstance(new_links, list):
-                self._links = new_links
-                self._update_data()
+                self.set_links(new_links)
             # Crawl the links.
             results = []
             for crawl_data in self._crawl_data:

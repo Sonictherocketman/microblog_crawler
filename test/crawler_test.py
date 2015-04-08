@@ -23,7 +23,7 @@ class MyFeedCrawler(FeedCrawler):
         pass
 
     def on_item(self, link, info, item):
-        #print 'Item text: {0}\n{1}'.format(info, item)
+        print 'Item text: {0}\n{1}'.format(info, item)
         pass
 
     def on_error(self, link, error):
