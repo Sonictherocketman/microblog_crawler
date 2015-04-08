@@ -254,23 +254,6 @@ class FeedCrawler():
             if self._crawl_data[i][0] not in self._links:
                 del self._crawl_data[i]
 
-        """
-        for link in self._links:
-            index = self._links.index(link)
-            # Re-add the old items.
-            [new_crawl_data.insert(index, (old_link, lct, c, dt, ifp))
-                    for old_link, lct, c, dt, ifp in self._crawl_data
-                    if link == old_link]
-            # Add the new ones.
-            last_crawl_time = datetime.now(pytz.utc)
-            cache = { 'expire_times': [], 'descriptions': [] }
-            deep_traverse = self._deep_traverse
-            is_first_pass = True
-
-            data = link, last_crawl_time, cache, deep_traverse, is_first_pass
-            new_crawl_data.insert(index, data)
-        self._crawl_data = new_crawl_data
-        """
 
 # Internal Crawling Function
 
