@@ -47,7 +47,7 @@ class FeedCrawler():
     # can make the timeline more realtime, but will cost more in bandwidth.
     # For example, crawling every 3 sec for ~60 feeds will use ~0.5TB of
     # bandwidth per month (~750 hrs).
-    CRAWL_INTERVAL = 5
+    CRAWL_INTERVAL = 3
 
     # Seconds until cached posts expire. Adjust this range if you
     # notice duplicate items in your feed. Longer expire times mean
@@ -320,14 +320,21 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         return link, data, cache, { 'code': -1,
                 'description': 'No channel element found.' }
 
+    # Check the last build date.
+    lbd_element = channel.xpath('/lastBuildDate')
+    if len(lbd_element) > 0:
+        last_build_date = parse(lbd_element[0].text)
+        if last_build_date < last_crawl_time:
+            data['crawl_time'] = fetch_time
+            return link, data, cache, None
+
+    # Taverse the tree.
     for element in channel[0].getchildren():
         element_count += 1
-        # Search for info fields.
         if element.xpath('name()').lower() != 'item':
             info = _to_dict(element)
             if info:
                 data['info_fields'].append(info)
-        # Search for items.
         else:
             item = _to_dict(element)[1]
             if item is not None:
