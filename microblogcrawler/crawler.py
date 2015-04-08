@@ -96,6 +96,7 @@ class FeedCrawler():
         """ Starts the crawling process. """
         if links is not None:
             self._links = links
+            self._start_time = datetime.now(pytz.utc)
         self._stop_crawling = False
         self._do_crawl()
 
