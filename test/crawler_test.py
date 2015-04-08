@@ -49,8 +49,6 @@ links = [
         'http://feeds.nytimes.com/nyt/rss/HomePage',
         'http://rssfeeds.usatoday.com/usatoday-NewsTopStories',
         'http://www.npr.org/rss/rss.php?id=1001',
-        # THIS FEED CAUSES PROBLEMS
-        #'http://feeds.reuters.com/reuters/topNews',
         'http://newsrss.bbc.co.uk/rss/newsonline_world_edition/americas/rss.xml',
         'http://www.pbs.org/wgbh/pages/frontline/rss/files.xml',
         'http://www.pbs.org/wgbh/nova/rss/nova.xml',
@@ -62,16 +60,19 @@ links = [
         'http://feeds1.nytimes.com/nyt/rss/Sports',
         'http://sports.yahoo.com/top/rss.xml',
         'http://www.nba.com/jazz/rss.xml',
-        #'http://www.npr.org/rss/rss.php?id=1008',
-        #'http://www.newyorker.com/feed/humor',
-        #'http://www.npr.org/rss/rss.php?id=13',
-        #'http://www.npr.org/rss/rss.php?id=1045',
+        'http://www.npr.org/rss/rss.php?id=1008',
+        'http://www.newyorker.com/feed/humor',
+        'http://www.npr.org/rss/rss.php?id=13',
+        'http://www.npr.org/rss/rss.php?id=1045',
         'http://www.nationalgeographic.com/adventure/nga.xml',
-        # THIS FEED CAUSES PROBLEMS
-        #'http://www.npr.org/rss/rss.php?id=1001',
         'http://feeds.reuters.com/reuters/topNews',
-        # THIS FEED CAUSES PROBLEMS
+
+        # THESE TESTING FEEDS CAUSE PROBLEMS
+        # TODO: Investigate why. These feeds are never marked as read and items
+        # reappear every iteration.
         #'http://newsrss.bbc.co.uk/rss/newsonline_world_edition/americas/rss.xml',
+        #'http://feeds.reuters.com/reuters/topNews',
+        #'http://www.npr.org/rss/rss.php?id=1001',
 
         # Microblog feeds
         'http://microblog.brianschrader.com/feed'
