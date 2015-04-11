@@ -10,7 +10,7 @@ class MyFeedCrawler(FeedCrawler):
 
     def on_item(self, link, info, item):
         """ Prints new items. """
-        print item['description']
+        print str(item['pubdate']) + ' ' + str(item['description'])
 
 links = [
         # Brian's Microblog
