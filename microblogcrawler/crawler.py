@@ -260,125 +260,130 @@ class FeedCrawler():
 
 def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     """ Performs the actual crawling. """
-    # Record the time the link was fetched.
-    fetch_time = datetime.now(pytz.utc)
-    fetch_time.replace(second=0, microsecond=0)
-
-    data = { 'info_fields': [], 'items': [], 'raw': '', 'crawl_time': None }
-
-    # Add various info to the headers.
-    headers = { 'User-Agent': FeedCrawler.USER_AGENT }
-    if not is_first_pass:
-        headers['If-Modified-Since'] = last_crawl_time.strftime('%a, %d %b %Y %H:%M:%S %Z')
-
-    attempts = 0
-    new_link = link
-    while True:
-        # Make the request.
-        try:
-            r = requests.get(new_link, headers=headers)
-        except requests.exceptions.ConnectionError:
-            return link, data, cache, { 'code': -1,
-                    'description': 'Connection refused' }
-
-        # Check for HTTP status codes.
-        if r.status_code == 301:
-            attempts += 1
-            if attempts < FeedCrawler.MAX_REDIRECTS:
-                new_link = r.headers['Location']
-            else:
-                return link, data, cache, { 'code': r.status_code,
-                        'description': 'Too many redirects.'}
-        elif r.status_code == 304:
-            data['crawl_time'] = fetch_time
-            return link, data, cache, None
-        elif r.status_code == 404:
-            return link, data, cache, { 'code': r.status_code,
-                    'description': 'Feed not found.' }
-        elif r.status_code == 500:
-            return link, data, cache, { 'code': r.status_code,
-                    'description': 'Internal server error.' }
-        elif r.status_code != 200:
-            return link, data, cache, { 'code': r.status_code,
-                    'description': 'Other error, check HTTP status code.' }
-        else:
-            break
-
-    data['raw'] = r.text
-
-    # Convert to lxml.etree
+    # This try is based on a workaround for non-pickleable exceptions.
+    # http://stackoverflow.com/questions/15314189/python-multiprocessing-pool-hangs-at-join
     try:
-        tree = etree.parse(BytesIO(r.content))
-    except etree.ParseError:
-        return link, data, cache, { 'code': -1,
-                'description': 'Parsing error, malformed feed.' }
+        # Record the time the link was fetched.
+        fetch_time = datetime.now(pytz.utc)
+        fetch_time.replace(second=0, microsecond=0)
 
-    # Extract the useful info from it.
-    element_count = 0
-    channel = tree.xpath('//channel')
-    if len(channel) < 1:
-        return link, data, cache, { 'code': -1,
-                'description': 'No channel element found.' }
-    """
-    # Check the last build date if this feed has been seen before.
-    if not is_first_pass:
-        lbd_element = channel[0].xpath('//lastBuildDate')
-        if len(lbd_element) > 0:
-            last_build_date = parse(lbd_element[0].text)
-            if last_build_date < last_crawl_time:
+        data = { 'info_fields': [], 'items': [], 'raw': '', 'crawl_time': None }
+
+        # Add various info to the headers.
+        headers = { 'User-Agent': FeedCrawler.USER_AGENT }
+        if not is_first_pass:
+            headers['If-Modified-Since'] = last_crawl_time.strftime('%a, %d %b %Y %H:%M:%S %Z')
+
+        attempts = 0
+        new_link = link
+        while True:
+            # Make the request.
+            try:
+                r = requests.get(new_link, headers=headers)
+            except requests.exceptions.ConnectionError:
+                return link, data, cache, { 'code': -1,
+                        'description': 'Connection refused' }
+
+            # Check for HTTP status codes.
+            if r.status_code == 301:
+                attempts += 1
+                if attempts < FeedCrawler.MAX_REDIRECTS:
+                    new_link = r.headers['Location']
+                else:
+                    return link, data, cache, { 'code': r.status_code,
+                            'description': 'Too many redirects.'}
+            elif r.status_code == 304:
                 data['crawl_time'] = fetch_time
                 return link, data, cache, None
-    """
-    # Taverse the tree.
-    for element in channel[0].getchildren():
-        element_count += 1
-        if element.xpath('name()').lower() != 'item':
-            info = _to_dict(element)
-            if info:
-                data['info_fields'].append(info)
-        else:
-            item = _to_dict(element)[1]
-            if item is not None:
-                # Get the pubdate of the item.
-                # If the pubdate has no tzinfo, the server's timezone.
-                pubdate = parse(item['pubdate'])
-                if pubdate.tzinfo is None:
-                    server_time = parse(r.headers['date'])
-                    server_tz = pytz.timezone(server_time.tzname())
-                    pubdate = server_tz.localize(pubdate)
-                # Normalize timezones to UTC
-                pubdate = pytz.utc.normalize(pubdate)
-                item_is_new = pubdate >= last_crawl_time \
-                        and item['description'] not in cache['descriptions']
-                if is_first_pass or item_is_new:
-                    # Cache the item's text and when it expires from the cache.
-                    expire_time = datetime.now(pytz.utc) \
-                        + timedelta(0, FeedCrawler.CACHE_EXPIRE_TIME)
-                    cache['descriptions'].append(item['description'])
-                    cache['expire_times'].append(expire_time)
-                    # Add it to the list of new items.
-                    data['items'].append(item)
+            elif r.status_code == 404:
+                return link, data, cache, { 'code': r.status_code,
+                        'description': 'Feed not found.' }
+            elif r.status_code == 500:
+                return link, data, cache, { 'code': r.status_code,
+                        'description': 'Internal server error.' }
+            elif r.status_code != 200:
+                return link, data, cache, { 'code': r.status_code,
+                        'description': 'Other error, check HTTP status code.' }
+            else:
+                break
 
-        # Check how many elements have been examined in the
-        # feed so far, if its too many, break out.
-        if element_count > FeedCrawler.MAX_ITEMS_PER_FEED:
+        data['raw'] = r.text
+
+        # Convert to lxml.etree
+        try:
+            tree = etree.parse(BytesIO(r.content))
+        except etree.ParseError:
             return link, data, cache, { 'code': -1,
-                    'description': 'Overflow of elements.' }
+                    'description': 'Parsing error, malformed feed.' }
 
-    # Traverse the next_node of the feed.
-    next_node = tree.xpath('//next_node')
-    if next_node is not None and len(next_node) > 0:
-        next_link = next_node[0].text
-        # Check if this is the first node.
-        head_node = channel.xpath('//link')
-        is_first_node = head_node == link
-        if is_first_node or deep_traverse or is_first_pass:
-            _crawl_link(next_link, last_crawl_time, cache, deep_traverse,
-                    is_first_pass)
+        # Extract the useful info from it.
+        element_count = 0
+        channel = tree.xpath('//channel')
+        if len(channel) < 1:
+            return link, data, cache, { 'code': -1,
+                    'description': 'No channel element found.' }
+        """
+        # Check the last build date if this feed has been seen before.
+        if not is_first_pass:
+            lbd_element = channel[0].xpath('//lastBuildDate')
+            if len(lbd_element) > 0:
+                last_build_date = parse(lbd_element[0].text)
+                if last_build_date < last_crawl_time:
+                    data['crawl_time'] = fetch_time
+                    return link, data, cache, None
+        """
+        # Taverse the tree.
+        for element in channel[0].getchildren():
+            element_count += 1
+            if element.xpath('name()').lower() != 'item':
+                info = _to_dict(element)
+                if info:
+                    data['info_fields'].append(info)
+            else:
+                item = _to_dict(element)[1]
+                if item is not None:
+                    # Get the pubdate of the item.
+                    # If the pubdate has no tzinfo, the server's timezone.
+                    pubdate = parse(item['pubdate'])
+                    if pubdate.tzinfo is None:
+                        server_time = parse(r.headers['date'])
+                        server_tz = pytz.timezone(server_time.tzname())
+                        pubdate = server_tz.localize(pubdate)
+                    # Normalize timezones to UTC
+                    pubdate = pytz.utc.normalize(pubdate)
+                    item_is_new = pubdate >= last_crawl_time \
+                            and item['description'] not in cache['descriptions']
+                    if is_first_pass or item_is_new:
+                        # Cache the item's text and when it expires from the cache.
+                        expire_time = datetime.now(pytz.utc) \
+                            + timedelta(0, FeedCrawler.CACHE_EXPIRE_TIME)
+                        cache['descriptions'].append(item['description'])
+                        cache['expire_times'].append(expire_time)
+                        # Add it to the list of new items.
+                        data['items'].append(item)
 
-    # Update the stored crawl time to the saved value above.
-    data['crawl_time'] = fetch_time
-    return link, data, cache, None
+            # Check how many elements have been examined in the
+            # feed so far, if its too many, break out.
+            if element_count > FeedCrawler.MAX_ITEMS_PER_FEED:
+                return link, data, cache, { 'code': -1,
+                        'description': 'Overflow of elements.' }
+
+        # Traverse the next_node of the feed.
+        next_node = tree.xpath('//next_node')
+        if next_node is not None and len(next_node) > 0:
+            next_link = next_node[0].text
+            # Check if this is the first node.
+            head_node = channel.xpath('//link')
+            is_first_node = head_node == link
+            if is_first_node or deep_traverse or is_first_pass:
+                _crawl_link(next_link, last_crawl_time, cache, deep_traverse,
+                        is_first_pass)
+
+        # Update the stored crawl time to the saved value above.
+        data['crawl_time'] = fetch_time
+        return link, data, cache, None
+    except:
+        print 'There was an error crawling. Workaround successful.'
 
 
 def _to_dict(element):
