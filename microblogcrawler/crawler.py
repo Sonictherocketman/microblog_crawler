@@ -191,8 +191,11 @@ class FeedCrawler():
             # Crawl the links.
             results = []
             for crawl_data in self._crawl_data:
-                results.append(self._pool.apply_async(_crawl_link, crawl_data,
-                        callback=self._process))
+                try:
+                    results.append(self._pool.apply_async(_crawl_link, crawl_data,
+                            callback=self._process))
+                except:
+                    pass # Errors here mean that the pool closed unexpectedly.
             # Wait until all finish.
             try:
                 [result.get(timeout=5) for result in results]
