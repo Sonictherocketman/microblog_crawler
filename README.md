@@ -1,6 +1,6 @@
 # Microblog Feed Crawler
 
-*Version 1.3!*
+*Version 1.4!*
 
 A basic feed crawler/parser for traversing [microblog][1] and RSS feeds.  
 
@@ -34,6 +34,19 @@ error = {
 `pip install MicroblogCrawler`
 
 ## Version Notes
+
+Version 1.4 is the most stable release yet.
+
+----
+
+Fixes include:
+
+- Calling `stop` now actually stops the crawler. This bug was due to a nasty bug in Python's `multiprocessing` module (9400). The crawler now alerts you when such a problem arises by outputting it through the `on_error` callback.
+- Fixed a bug that would cause feeds to throw errors if no `pubdate` element was found. Elements are not parsed but are discarded, and `on_error` is called.
+- Fixed a bug that would cause RSS feeds to throw exceptions.
+- Added more detailed error messages to common problems.
+- When exceptions that cannot be diagnosed occur the full stack trace is sent to `on_error`.
+
 
 Version 1.3 is now multiprocessed! 
 
