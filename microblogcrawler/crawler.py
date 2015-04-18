@@ -117,8 +117,7 @@ class FeedCrawler():
         """ Gracefully stops the crawling process. This shuts down
         the processing pool and exits when all processes have stopped. """
         self._stop_crawling = True
-        self._pool.terminate()
-        self._pool.join()
+        self._pool.close()
 
     def progress(self):
         """ Returns the crawlers progress through its given list. """
@@ -194,8 +193,8 @@ class FeedCrawler():
                         callback=self._process))
             # Wait until all finish.
             try:
-                [result.get() for result in results]
-            except AttributeError:
+                [result.get(timeout=5) for result in results]
+            except:
                 self.on_error('', { 'code': -1, 'description': \
                 'Error parsing link. See previous error for more info.' })
             self.on_finish()
@@ -382,9 +381,8 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         # Update the stored crawl time to the saved value above.
         data['crawl_time'] = fetch_time
         return link, data, cache, None
-    except:
-        print 'There was an error crawling. Workaround successful.'
-
+    except Exception, e:
+        return link, data, cache, { 'code': -1, 'description': 'Error during crawl: {0}'.format(e) }
 
 def _to_dict(element):
     """ Converts a lxml element to python dict.

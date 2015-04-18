@@ -30,7 +30,7 @@ class MyFeedCrawler(FeedCrawler):
         pass
 
     def on_error(self, link, error):
-        #print 'Error for {}:\n {}'.format(link, error['description'])
+        print 'Error for {}:\n {}'.format(link, error['description'])
         pass
 
 # TODO Add more feeds, and some microblog feeds.
