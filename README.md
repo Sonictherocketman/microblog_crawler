@@ -112,7 +112,7 @@ Although the crawler hasn't gone through formal testing, The results of limited 
     <tbody>
         <tr>
             <td>36</td>
-            <td>0.605 (s)</td>
+            <td>0.225 (s)</td>
             <td>30</td>
         </tr>
     </tbody>
