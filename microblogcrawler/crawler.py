@@ -116,8 +116,10 @@ class FeedCrawler():
     def stop(self):
         """ Gracefully stops the crawling process. This shuts down
         the processing pool and exits when all processes have stopped. """
+        print 'Stopping... (this may take a few seconds)'
         self._stop_crawling = True
-        self._pool.close()
+        #self._pool.close()
+        print 'Goodbye :)'
 
     def progress(self):
         """ Returns the crawlers progress through its given list. """
@@ -195,8 +197,8 @@ class FeedCrawler():
             try:
                 [result.get(timeout=5) for result in results]
             except:
-                self.on_error('', { 'code': -1, 'description': \
-                'Error parsing link. See previous error for more info.' })
+                self.on_error('{ Unknown Link }', { 'code': -1, 'description': \
+                'An unknown error occurred while parsing a link.' })
             self.on_finish()
             time.sleep(FeedCrawler.CRAWL_INTERVAL)
 
@@ -343,7 +345,11 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
                 if item is not None:
                     # Get the pubdate of the item.
                     # If the pubdate has no tzinfo, the server's timezone.
-                    pubdate = parse(item['pubdate'])
+                    try:
+                        pubdate = parse(item['pubdate'])
+                    except:
+                        return link, data, cache, { 'code': -1, 'description':
+                                'Error parsing pubdate for item. There may be no pubdate element.'}
                     if pubdate.tzinfo is None:
                         server_time = parse(r.headers['date'])
                         server_tz = pytz.timezone(server_time.tzname())
@@ -381,8 +387,10 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         # Update the stored crawl time to the saved value above.
         data['crawl_time'] = fetch_time
         return link, data, cache, None
-    except Exception, e:
-        return link, data, cache, { 'code': -1, 'description': 'Error during crawl: {0}'.format(e) }
+    except:
+        from traceback import format_exc
+        return link, data, cache, { 'code': -1, 'description': 'Error during crawl\n\n{0}'
+                .format(format_exc()) }
 
 def _to_dict(element):
     """ Converts a lxml element to python dict.
