@@ -113,13 +113,24 @@ class FeedCrawler():
         self._stop_crawling = False
         self._do_crawl()
 
-    def stop(self):
+    def stop(self, now=False):
         """ Gracefully stops the crawling process. This shuts down
         the processing pool and exits when all processes have stopped. """
-        print 'Stopping... (this may take a few seconds)'
-        self._stop_crawling = True
-        #self._pool.close()
-        print 'Goodbye :)'
+        if now:
+            # Try to close the crawler and if it fails,
+            # then ignore the error. This is a known issue
+            # with Python multiprocessing.
+            try:
+                self._stop_crawling = True
+                self._pool.close()
+                self._pool.join()
+            except:
+                pass
+        else:
+            print 'Stopping... (this may take a few seconds)'
+            self._stop_crawling = True
+            #self._pool.close()
+            print 'Goodbye :)'
 
     def progress(self):
         """ Returns the crawlers progress through its given list. """
