@@ -1,6 +1,6 @@
 # Microblog Feed Crawler
 
-*Version 1.4!*
+*Version 1.4.1!*
 
 A basic feed crawler/parser for traversing [microblog][1] and RSS feeds.  
 
@@ -34,6 +34,16 @@ error = {
 `pip install MicroblogCrawler`
 
 ## Version Notes
+
+Version 1.4.1
+
+----
+
+Fixes include:
+
+- Fixed a  major bug when attempting to stop the crawler immediatly.
+- Silenced random error when quitting prematurely (this would cause the crawler to hang indefinetly).
+
 
 Version 1.4 is the most stable release yet.
 
@@ -99,7 +109,7 @@ if __name__ == '__main__':
 
 ## Performance
 
-Although the crawler hasn't gone through formal testing, The results of limited tests are below:
+Although the crawler hasn't gone through formal testing, The results of limited tests are below (tested on a Linode VPS):
 
 <table>
     <thead>
