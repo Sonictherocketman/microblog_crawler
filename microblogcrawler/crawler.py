@@ -129,7 +129,7 @@ class FeedCrawler():
         else:
             print 'Stopping... (this may take a few seconds)'
             self._stop_crawling = True
-            #self._pool.close()
+            self._pool.close()
             print 'Goodbye :)'
 
     def progress(self):
@@ -177,7 +177,7 @@ class FeedCrawler():
         print '''Error: {0}
         Code: {1}
         URL: {2}
-        '''.format(error['description'], error['code'], error['link'])
+        '''.format(error.get('description'), error.get('code'), error.get('link'))
 
     # Internals
 
@@ -233,6 +233,7 @@ class FeedCrawler():
         [info_dict.setdefault(key, value) for key, value in info_fields]
 
         # Notify self.
+        # TODO: Change ERRORS to NamedTuples
         if error is not None:
             self.on_error(link, error)
             return
@@ -402,9 +403,10 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         data['crawl_time'] = fetch_time
         return link, data, cache, None
     except:
-        from traceback import format_exc
-        return link, data, cache, { 'code': -1, 'description': 'Error during crawl\n\n{0}'
-                .format(format_exc()) }
+        #from traceback import format_exc
+        #return link, data, cache, { 'code': -1, 'description': 'Error during crawl' }
+        #.format(format_exc()) }
+        pass
 
 def _to_dict(element):
     """ Converts a lxml element to python dict.
