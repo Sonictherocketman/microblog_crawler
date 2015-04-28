@@ -204,14 +204,11 @@ class FeedCrawler():
                 self.set_links(new_links)
             # Crawl the links.
             results = []
-            #for crawl_data in self._crawl_data:
             try:
                 results = self._pool.map(_crawl_link, self._crawl_data)
             except Exception as e:
-                print e
-                #pass # Errors here mean that the pool closed unexpectedly.
+                pass # Errors here mean that the pool closed unexpectedly.
             # Process the results.
-            print results
             [apply(self._process, args) for args in results]
             self.on_finish()
             time.sleep(FeedCrawler.CRAWL_INTERVAL)
