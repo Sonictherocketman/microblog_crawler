@@ -49,6 +49,10 @@ class FeedCrawler():
     # bandwidth per month (~750 hrs).
     CRAWL_INTERVAL = 3
 
+    # The number of seconds a given queue can be given to complete
+    # it's jobs.
+    PROCESSING_TIMEOUT = 5
+
     # Seconds until cached posts expire. Adjust this range if you
     # notice duplicate items in your feed. Longer expire times mean
     # the cache is more memory intensive to store and computationally
@@ -116,21 +120,20 @@ class FeedCrawler():
     def stop(self, now=False):
         """ Gracefully stops the crawling process. This shuts down
         the processing pool and exits when all processes have stopped. """
+        self._stop_crawling = True
         if now:
             # Try to close the crawler and if it fails,
             # then ignore the error. This is a known issue
             # with Python multiprocessing.
             try:
-                self._stop_crawling = True
-                self._pool.close()
-                self._pool.join()
-            except:
+                self._pool.terminate()
+            except Exception as e:
                 pass
         else:
             print 'Stopping... (this may take a few seconds)'
-            self._stop_crawling = True
             self._pool.close()
             print 'Goodbye :)'
+        self._pool.join()
 
     def progress(self):
         """ Returns the crawlers progress through its given list. """
@@ -205,12 +208,12 @@ class FeedCrawler():
                 try:
                     results.append(self._pool.apply_async(_crawl_link, crawl_data,
                             callback=self._process))
-                except:
+                except Exception as e:
                     pass # Errors here mean that the pool closed unexpectedly.
             # Wait until all finish.
             try:
-                [result.get(timeout=5) for result in results]
-            except:
+                [result.get(timeout=FeedCrawler.PROCESSING_TIMEOUT) for result in results]
+            except Exception as e:
                 self.on_error('{ Unknown Link }', { 'code': -1, 'description': \
                 'An unknown error occurred while parsing a link.' })
             self.on_finish()
@@ -362,7 +365,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
                     # If the pubdate has no tzinfo, the server's timezone.
                     try:
                         pubdate = parse(item['pubdate'])
-                    except:
+                    except Exception as e:
                         return link, data, cache, { 'code': -1, 'description':
                                 'Error parsing pubdate for item. There may be no pubdate element.'}
                     if pubdate.tzinfo is None:
@@ -402,7 +405,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         # Update the stored crawl time to the saved value above.
         data['crawl_time'] = fetch_time
         return link, data, cache, None
-    except:
+    except Exception as e:
         #from traceback import format_exc
         #return link, data, cache, { 'code': -1, 'description': 'Error during crawl' }
         #.format(format_exc()) }
