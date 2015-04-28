@@ -204,18 +204,15 @@ class FeedCrawler():
                 self.set_links(new_links)
             # Crawl the links.
             results = []
-            for crawl_data in self._crawl_data:
-                try:
-                    results.append(self._pool.apply_async(_crawl_link, crawl_data,
-                            callback=self._process))
-                except Exception as e:
-                    pass # Errors here mean that the pool closed unexpectedly.
-            # Wait until all finish.
+            #for crawl_data in self._crawl_data:
             try:
-                [result.get(timeout=FeedCrawler.PROCESSING_TIMEOUT) for result in results]
+                results = self._pool.map(_crawl_link, self._crawl_data)
             except Exception as e:
-                self.on_error('{ Unknown Link }', { 'code': -1, 'description': \
-                'An unknown error occurred while parsing a link.' })
+                print e
+                #pass # Errors here mean that the pool closed unexpectedly.
+            # Process the results.
+            print results
+            [apply(self._process, args) for args in results]
             self.on_finish()
             time.sleep(FeedCrawler.CRAWL_INTERVAL)
 
@@ -224,11 +221,11 @@ class FeedCrawler():
         self._start_now = False
         self.on_shutdown()
 
-    def _process(self, return_data):
+    def _process(self, link, data, cache, error): #return_data):
         """ Callback to handle the _crawl_link data once it's
         returned from processing. This is called for each link once
         it returns. """
-        link, data, cache, error = return_data
+        #link, data, cache, error = return_data
         raw = data['raw']
         info_fields = data['info_fields']
         items = data['items']
@@ -277,11 +274,12 @@ class FeedCrawler():
 # Internal Crawling Function
 
 
-def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
+def _crawl_link(args):
     """ Performs the actual crawling. """
     # This try is based on a workaround for non-pickleable exceptions.
     # http://stackoverflow.com/questions/15314189/python-multiprocessing-pool-hangs-at-join
     try:
+        link, last_crawl_time, cache, deep_traverse, is_first_pass = args
         # Record the time the link was fetched.
         fetch_time = datetime.now(pytz.utc)
         fetch_time.replace(second=0, microsecond=0)
