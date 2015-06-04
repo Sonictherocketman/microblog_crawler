@@ -14,7 +14,7 @@ class MyFeedCrawler(FeedCrawler):
     def on_error(self, link, error):
         print 'Error: {}\n{}'.format(error['description'], link)
 
-    def on_item(self, link, info, item):
+    def on_item(self, link, item):
         print item.description
 
     def on_finish(self):

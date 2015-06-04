@@ -169,12 +169,13 @@ class FeedCrawler():
         yet been parsed and is just text. """
         pass
 
-    def on_info(self, link, info):
-        """ Called when a feed's info fields are collected.
-        (i.e. relocate, user_name, etc) """
+    def on_feed(self, link, feed):
+        """ Called when the feed is parsed. Feed is a python feed object
+        modeling the entire feed being parsed.
+        """
         pass
 
-    def on_item(self, link, info, item):
+    def on_item(self, link, item):
         """ Called when a new post element is found. """
         pass
 
@@ -232,18 +233,16 @@ class FeedCrawler():
         it returns. """
         link, data, cache, error = return_data
         raw = data['raw']
-        info_fields = data['info_fields']
+        feed = data['feed']
         items = data['items']
-        info_dict = {}
-        [info_dict.setdefault(key, value) for key, value in info_fields]
         # Notify self.
         # TODO: Change ERRORS to NamedTuples
         if error is not None:
             self.on_error(link, error)
             return
         self.on_data(link, raw)
-        self.on_info(link, info_dict)
-        [self.on_item(link, info_dict, item) for item in items]
+        self.on_feed(link, feed)
+        [self.on_item(link, item) for item in items]
 
         # Prune the expired posts from the cache.
         crawl_time = data['crawl_time']
@@ -287,7 +286,7 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         fetch_time = datetime.now(pytz.utc)
         fetch_time.replace(second=0, microsecond=0)
 
-        data = { 'info_fields': [], 'items': [], 'raw': '', 'crawl_time': None }
+        data = { 'feed': None, 'items': [], 'raw': '', 'crawl_time': None }
 
         # Add various info to the headers.
         headers = { 'User-Agent': FeedCrawler.USER_AGENT }
@@ -345,6 +344,8 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
                     data['crawl_time'] = fetch_time
                     return link, data, cache, None
         """
+        data['feed'] = feed
+
         for item in feed:
             # Normalize timezones to UTC
             pubDate = pytz.utc.normalize(parse(item.pubDate))
