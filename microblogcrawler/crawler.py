@@ -11,6 +11,7 @@ from multiprocessing import Pool
 import sys
 import pkg_resources
 
+from feed import MainFeed, MalformedFeedError
 
 # Public FeedCrawler Class
 
@@ -128,12 +129,16 @@ class FeedCrawler():
             try:
                 self._pool.terminate()
             except Exception as e:
-                pass
+                print e
         else:
-            print 'Stopping... (this may take a few seconds)'
             self._pool.close()
-            print 'Goodbye :)'
         self._pool.join()
+
+        # Test that everything is gone.
+        #processes = self._pool._pool
+        #self._pool = None
+        #for worker in processes:
+        #    assert not worker.is_alive()
 
     def progress(self):
         """ Returns the crawlers progress through its given list. """
@@ -198,18 +203,21 @@ class FeedCrawler():
 
         # Start crawling.
         while not self._stop_crawling:
-            # Check for new links.
             new_links = self.on_start()
             if isinstance(new_links, list):
                 self.set_links(new_links)
-            # Crawl the links.
             results = []
+            for crawl_data in self._crawl_data:
+                try:
+                    results.append(self._pool.apply_async(_crawl_link, crawl_data,
+                        callback=self._process))
+                except Exception as e:
+                    link = crawl_data[0]
+                    self.on_error(link, { 'code': -1, 'description': 'Error crawling link.' })
             try:
-                results = self._pool.map(_crawl_link, self._crawl_data)
+                [result.get(timeout=FeedCrawler.PROCESSING_TIMEOUT) for result in results]
             except Exception as e:
-                pass # Errors here mean that the pool closed unexpectedly.
-            # Process the results.
-            [apply(self._process, args) for args in results]
+                print e  # Errors here mean that the pool closed unexpectedly.
             self.on_finish()
             time.sleep(FeedCrawler.CRAWL_INTERVAL)
 
@@ -218,17 +226,16 @@ class FeedCrawler():
         self._start_now = False
         self.on_shutdown()
 
-    def _process(self, link, data, cache, error): #return_data):
+    def _process(self, return_data):
         """ Callback to handle the _crawl_link data once it's
         returned from processing. This is called for each link once
         it returns. """
-        #link, data, cache, error = return_data
+        link, data, cache, error = return_data
         raw = data['raw']
         info_fields = data['info_fields']
         items = data['items']
         info_dict = {}
         [info_dict.setdefault(key, value) for key, value in info_fields]
-
         # Notify self.
         # TODO: Change ERRORS to NamedTuples
         if error is not None:
@@ -271,12 +278,11 @@ class FeedCrawler():
 # Internal Crawling Function
 
 
-def _crawl_link(args):
+def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
     """ Performs the actual crawling. """
     # This try is based on a workaround for non-pickleable exceptions.
     # http://stackoverflow.com/questions/15314189/python-multiprocessing-pool-hangs-at-join
     try:
-        link, last_crawl_time, cache, deep_traverse, is_first_pass = args
         # Record the time the link was fetched.
         fetch_time = datetime.now(pytz.utc)
         fetch_time.replace(second=0, microsecond=0)
@@ -323,19 +329,12 @@ def _crawl_link(args):
 
         data['raw'] = r.text
 
-        # Convert to lxml.etree
         try:
-            tree = etree.parse(BytesIO(r.content))
-        except etree.ParseError:
+            feed = MainFeed(raw_text=r.content)
+        except MalformedFeedError:
             return link, data, cache, { 'code': -1,
                     'description': 'Parsing error, malformed feed.' }
 
-        # Extract the useful info from it.
-        element_count = 0
-        channel = tree.xpath('//channel')
-        if len(channel) < 1:
-            return link, data, cache, { 'code': -1,
-                    'description': 'No channel element found.' }
         """
         # Check the last build date if this feed has been seen before.
         if not is_first_pass:
@@ -346,64 +345,39 @@ def _crawl_link(args):
                     data['crawl_time'] = fetch_time
                     return link, data, cache, None
         """
-        # Taverse the tree.
-        for element in channel[0].getchildren():
-            element_count += 1
-            if element.xpath('name()').lower() != 'item':
-                info = _to_dict(element)
-                if info:
-                    data['info_fields'].append(info)
-            else:
-                item = _to_dict(element)[1]
-                if item is not None:
-                    # Get the pubdate of the item.
-                    # If the pubdate has no tzinfo, the server's timezone.
-                    try:
-                        pubdate = parse(item['pubdate'])
-                    except Exception as e:
-                        return link, data, cache, { 'code': -1, 'description':
-                                'Error parsing pubdate for item. There may be no pubdate element.'}
-                    if pubdate.tzinfo is None:
-                        server_time = parse(r.headers['date'])
-                        server_tz = pytz.timezone(server_time.tzname())
-                        pubdate = server_tz.localize(pubdate)
-                    # Normalize timezones to UTC
-                    pubdate = pytz.utc.normalize(pubdate)
-                    item_is_new = pubdate >= last_crawl_time \
-                            and item['description'] not in cache['descriptions']
-                    if is_first_pass or item_is_new:
-                        # Cache the item's text and when it expires from the cache.
-                        expire_time = datetime.now(pytz.utc) \
-                            + timedelta(0, FeedCrawler.CACHE_EXPIRE_TIME)
-                        cache['descriptions'].append(item['description'])
-                        cache['expire_times'].append(expire_time)
-                        # Add it to the list of new items.
-                        data['items'].append(item)
-
-            # Check how many elements have been examined in the
-            # feed so far, if its too many, break out.
-            if element_count > FeedCrawler.MAX_ITEMS_PER_FEED:
-                return link, data, cache, { 'code': -1,
-                        'description': 'Overflow of elements.' }
+        for item in feed:
+            # Normalize timezones to UTC
+            pubDate = pytz.utc.normalize(parse(item.pubDate))
+            item_is_new = pubDate >= last_crawl_time \
+                    and item.description not in cache['descriptions']
+            if is_first_pass or item_is_new:
+                # Cache the item's text and when it expires from the cache.
+                expire_time = datetime.now(pytz.utc) \
+                    + timedelta(0, FeedCrawler.CACHE_EXPIRE_TIME)
+                cache['descriptions'].append(item.description)
+                cache['expire_times'].append(expire_time)
+                # Add it to the list of new items.
+                data['items'].append(item)
 
         # Traverse the next_node of the feed.
-        next_node = tree.xpath('//next_node')
-        if next_node is not None and len(next_node) > 0:
-            next_link = next_node[0].text
+        next_node = None
+        try:
+            getattr(item, 'next_node')
+        except AttributeError:
+            pass
+        if next_node is not None:
             # Check if this is the first node.
-            head_node = channel.xpath('//link')
-            is_first_node = head_node == link
+            is_first_node = head_node == self.link
             if is_first_node or deep_traverse or is_first_pass:
-                _crawl_link(next_link, last_crawl_time, cache, deep_traverse,
+                _crawl_link(item.next_node, last_crawl_time, cache, deep_traverse,
                         is_first_pass)
 
         # Update the stored crawl time to the saved value above.
         data['crawl_time'] = fetch_time
         return link, data, cache, None
     except Exception as e:
-        #from traceback import format_exc
-        #return link, data, cache, { 'code': -1, 'description': 'Error during crawl' }
-        #.format(format_exc()) }
+        from traceback import format_exc
+        return link, data, cache, { 'code': -1, 'description': 'Error during crawl {0}'.format(format_exc()) }
         pass
 
 def _to_dict(element):

@@ -14,7 +14,8 @@ class MyFeedCrawler(FeedCrawler):
 
 links = [
         # Brian's Microblog
-        'http://microblog.brianschrader.com/feed'
+        'http://microblog.brianschrader.com/feed',
+        'http://127.0.0.1:5000/sonicrocketman/feed'
         ]
 
 def signal_handler(signal, frame):

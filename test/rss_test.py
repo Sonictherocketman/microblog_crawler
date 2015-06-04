@@ -73,9 +73,9 @@ links = [
         # THESE TESTING FEEDS CAUSE PROBLEMS
         # TODO: Investigate why. These feeds are never marked as read and items
         # reappear every iteration.
-        #'http://newsrss.bbc.co.uk/rss/newsonline_world_edition/americas/rss.xml',
-        #'http://feeds.reuters.com/reuters/topNews',
-        #'http://www.npr.org/rss/rss.php?id=1001',
+        'http://newsrss.bbc.co.uk/rss/newsonline_world_edition/americas/rss.xml',
+        'http://feeds.reuters.com/reuters/topNews',
+        'http://www.npr.org/rss/rss.php?id=1001',
 
         # Microblog feeds
         'http://microblog.brianschrader.com/feed'
