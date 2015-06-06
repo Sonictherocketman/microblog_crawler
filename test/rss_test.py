@@ -20,11 +20,7 @@ class MyFeedCrawler(FeedCrawler):
     def on_finish(self):
         print '{0} New Items | {1} seconds'.format(self.count, time.time() - self.total_time)
 
-    def on_info(self, link, info):
-        #print info
-        pass
-
-    def on_item(self, link, info, item):
+    def on_item(self, link, item):
         self.count += 1
         #print 'Item text: {0}\n{1}'.format(info, item)
         pass
@@ -80,6 +76,7 @@ links = [
         # Microblog feeds
         'http://microblog.brianschrader.com/feed'
         ]
+MyFeedCrawler.ALLOW_RSS = True
 crawler = MyFeedCrawler(links)
 
 def signal_handler(signal, frame):

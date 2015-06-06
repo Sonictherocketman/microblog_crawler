@@ -10,17 +10,24 @@ import time
 from multiprocessing import Pool
 import sys
 import pkg_resources
+from collections import namedtuple
 
 from feed import MainFeed, MalformedFeedError
+
+SimpleUser = namedtuple('User', 'username user_id link')
+
 
 # Public FeedCrawler Class
 
 
 class FeedCrawler():
-    """ A crawler for Microblog and RSS XML feeds. Similar to the
+    """ A crawler for valid Microblog XML feeds. Similar to the
     Tweepy StreamListener, this crawler will traverse the list of
     feeds it is given and once finished, will traverse them again.
     Subclass FeedCrawler to fill in the callbacks you need.
+
+    Because FeedCrawler uses the Open-Microblog validator, it only
+    successully parses 100% valid microblog-rss feeds.
 
     The crawler will use the `deep_traverse` flag to determine
     whether it should continue parsing `next_node` links in the feed.
@@ -39,6 +46,9 @@ class FeedCrawler():
     # resets for each page of the feed. A properly paginated feed
     # should never hit this limit.
     MAX_ITEMS_PER_FEED = 2000
+
+    # Should the crawler allow RSS feeds.
+    ALLOW_RSS = False
 
     # Seconds between crawl attempts. Since the crawler returns feed
     # items whenever it finishes parsing, and does not wait for other
@@ -175,7 +185,7 @@ class FeedCrawler():
         """
         pass
 
-    def on_item(self, link, item):
+    def on_item(self, link, user, item):
         """ Called when a new post element is found. """
         pass
 
@@ -235,6 +245,10 @@ class FeedCrawler():
         raw = data['raw']
         feed = data['feed']
         items = data['items']
+        user = SimpleUser(username=feed.username,
+                user_id=feed.user_id,
+                link=feed.link)
+
         # Notify self.
         # TODO: Change ERRORS to NamedTuples
         if error is not None:
@@ -242,7 +256,7 @@ class FeedCrawler():
             return
         self.on_data(link, raw)
         self.on_feed(link, feed)
-        [self.on_item(link, item) for item in items]
+        [self.on_item(link, user, item) for item in items]
 
         # Prune the expired posts from the cache.
         crawl_time = data['crawl_time']
@@ -252,7 +266,7 @@ class FeedCrawler():
                 del cache['expire_times'][i]
 
         # Update the crawl_data.
-        new_crawl_data = link, crawl_time, cache, self._deep_traverse, False
+        new_crawl_data = link, crawl_time, cache, self._deep_traverse, False, self.ALLOW_RSS
         index = [i for i, alink in enumerate(self._links) if alink == link][0]
         self._crawl_data[index] = new_crawl_data
 
@@ -263,10 +277,10 @@ class FeedCrawler():
         deep_traverse = self._deep_traverse
         is_first_pass = True
 
-        old_links = [link for link, lct, c, dt, ifp in self._crawl_data]
+        old_links = [link for link, lct, c, dt, ifp, rss in self._crawl_data]
         # Append new links.
         [self._crawl_data.append((link, last_crawl_time, cache, deep_traverse,
-                is_first_pass)) for link in self._links
+                is_first_pass, self.ALLOW_RSS)) for link in self._links
                 if link not in old_links]
         # Remove unused links.
         for i, _ in enumerate(self._crawl_data):
@@ -277,7 +291,7 @@ class FeedCrawler():
 # Internal Crawling Function
 
 
-def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
+def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass, allow_rss):
     """ Performs the actual crawling. """
     # This try is based on a workaround for non-pickleable exceptions.
     # http://stackoverflow.com/questions/15314189/python-multiprocessing-pool-hangs-at-join
@@ -329,10 +343,10 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
         data['raw'] = r.text
 
         try:
-            feed = MainFeed(raw_text=r.content)
-        except MalformedFeedError:
+            feed = MainFeed(raw_text=r.content, allow_rss=allow_rss)
+        except MalformedFeedError as e:
             return link, data, cache, { 'code': -1,
-                    'description': 'Parsing error, malformed feed.' }
+                    'description': str(e) }
 
         """
         # Check the last build date if this feed has been seen before.
@@ -348,18 +362,21 @@ def _crawl_link(link, last_crawl_time, cache, deep_traverse, is_first_pass):
 
         for item in feed:
             # Normalize timezones to UTC
-            pubDate = pytz.utc.normalize(parse(item.pubDate))
-            item_is_new = pubDate >= last_crawl_time \
-                    and item.description not in cache['descriptions']
-            if is_first_pass or item_is_new:
-                # Cache the item's text and when it expires from the cache.
-                expire_time = datetime.now(pytz.utc) \
-                    + timedelta(0, FeedCrawler.CACHE_EXPIRE_TIME)
-                cache['descriptions'].append(item.description)
-                cache['expire_times'].append(expire_time)
-                # Add it to the list of new items.
-                data['items'].append(item)
-
+            try:
+                pubDate = pytz.utc.normalize(parse(item.pubDate))
+                item_is_new = pubDate >= last_crawl_time \
+                        and item.description not in cache['descriptions']
+                if is_first_pass or item_is_new:
+                    # Cache the item's text and when it expires from the cache.
+                    expire_time = datetime.now(pytz.utc) \
+                        + timedelta(0, FeedCrawler.CACHE_EXPIRE_TIME)
+                    cache['descriptions'].append(item.description)
+                    cache['expire_times'].append(expire_time)
+                    # Add it to the list of new items.
+                    data['items'].append(item)
+            except ValueError as e:
+                # Timezone info not present. Skipping.
+                pass
         # Traverse the next_node of the feed.
         next_node = None
         try:

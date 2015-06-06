@@ -10,12 +10,13 @@ class MyFeedCrawler(FeedCrawler):
 
     def on_item(self, link, info, item):
         """ Prints new items. """
-        print str(item['pubdate']) + ' ' + str(item['description'])
+        print '{} says "{}"\t{}'.format(info.username, item.description, item.pubDate)
 
 links = [
         # Brian's Microblog
-        'http://microblog.brianschrader.com/feed',
-        'http://127.0.0.1:5000/sonicrocketman/feed'
+        #'http://microblog.brianschrader.com/feed',
+        'http://127.0.0.1:5000/jjjschmidt/feed.xml',
+        'http://macroblog.bigprob.net/?format=rss'
         ]
 
 def signal_handler(signal, frame):
